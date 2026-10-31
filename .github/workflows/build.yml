@@ -66,8 +66,8 @@ jobs:
                   applicationId = "com.fyt.carlauncher"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 2
-                  versionName = "1.1"
+                  versionCode = 4
+                  versionName = "1.3"
               }
               buildFeatures { compose = true }
               composeOptions { kotlinCompilerExtensionVersion = "1.5.10" }
@@ -112,8 +112,188 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+
+                  <service
+                      android:name=".MediaNotificationListener"
+                      android:exported="true"
+                      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+                      <intent-filter>
+                          <action android:name="android.service.notification.NotificationListenerService" />
+                      </intent-filter>
+                  </service>
               </application>
           </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/fyt/carlauncher/MediaNotificationListener.kt
+          package com.fyt.carlauncher
+
+          import android.app.Notification
+          import android.content.ComponentName
+          import android.content.Context
+          import android.graphics.Bitmap
+          import android.graphics.Canvas
+          import android.graphics.drawable.BitmapDrawable
+          import android.graphics.drawable.Icon
+          import android.media.MediaMetadata
+          import android.media.session.MediaController
+          import android.media.session.MediaSessionManager
+          import android.media.session.PlaybackState
+          import android.service.notification.NotificationListenerService
+          import android.service.notification.StatusBarNotification
+          import androidx.compose.runtime.getValue
+          import androidx.compose.runtime.mutableStateOf
+          import androidx.compose.runtime.setValue
+
+          object MediaState {
+              var title by mutableStateOf("YouTube Music")
+              var artist by mutableStateOf("Medya Bekleniyor...")
+              var isPlaying by mutableStateOf(false)
+              var albumArt by mutableStateOf<Bitmap?>(null)
+          }
+
+          object NavState {
+              var isNavigating by mutableStateOf(false)
+              var instruction by mutableStateOf("Google Maps")
+              var distanceEta by mutableStateOf("Navigasyonu Başlatmak İçin Dokunun")
+              var navIcon by mutableStateOf<Bitmap?>(null)
+          }
+
+          class MediaNotificationListener : NotificationListenerService() {
+              private var mediaSessionManager: MediaSessionManager? = null
+              private var activeController: MediaController? = null
+
+              private val callback = object : MediaController.Callback() {
+                  override fun onMetadataChanged(metadata: MediaMetadata?) {
+                      updateMetadata(metadata)
+                  }
+                  override fun onPlaybackStateChanged(state: PlaybackState?) {
+                      MediaState.isPlaying = state?.state == PlaybackState.STATE_PLAYING
+                  }
+              }
+
+              private val sessionListener = MediaSessionManager.OnActiveSessionsChangedListener { controllers ->
+                  attachToController(controllers)
+              }
+
+              override fun onListenerConnected() {
+                  super.onListenerConnected()
+                  try {
+                      mediaSessionManager = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+                      val componentName = ComponentName(this, MediaNotificationListener::class.java)
+                      mediaSessionManager?.addOnActiveSessionsChangedListener(sessionListener, componentName)
+                      attachToController(mediaSessionManager?.getActiveSessions(componentName))
+                      checkActiveNotifications()
+                  } catch (_: Exception) {}
+              }
+
+              override fun onNotificationPosted(sbn: StatusBarNotification?) {
+                  super.onNotificationPosted(sbn)
+                  try {
+                      val componentName = ComponentName(this, MediaNotificationListener::class.java)
+                      attachToController(mediaSessionManager?.getActiveSessions(componentName))
+                      if (sbn?.packageName == "com.google.android.apps.maps") {
+                          parseMapsNotification(sbn)
+                      }
+                  } catch (_: Exception) {}
+              }
+
+              override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+                  super.onNotificationRemoved(sbn)
+                  if (sbn?.packageName == "com.google.android.apps.maps") {
+                      NavState.isNavigating = false
+                      NavState.instruction = "Google Maps"
+                      NavState.distanceEta = "Navigasyonu Başlatmak İçin Dokunun"
+                      NavState.navIcon = null
+                  }
+              }
+
+              private fun checkActiveNotifications() {
+                  try {
+                      val active = activeNotifications ?: return
+                      for (sbn in active) {
+                          if (sbn.packageName == "com.google.android.apps.maps") {
+                              parseMapsNotification(sbn)
+                          }
+                      }
+                  } catch (_: Exception) {}
+              }
+
+              private fun parseMapsNotification(sbn: StatusBarNotification) {
+                  val extras = sbn.notification.extras ?: return
+                  val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+                  val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
+                  val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
+
+                  if (title.isNotBlank() || text.isNotBlank()) {
+                      NavState.isNavigating = true
+                      NavState.instruction = if (title.isNotBlank()) title else text
+                      NavState.distanceEta = when {
+                          text.isNotBlank() && subText.isNotBlank() -> "$text • $subText"
+                          text.isNotBlank() && text != NavState.instruction -> text
+                          subText.isNotBlank() -> subText
+                          else -> "Rota Aktif"
+                      }
+                      try {
+                          val largeIcon = sbn.notification.getLargeIcon()
+                          if (largeIcon != null) {
+                              val drawable = largeIcon.loadDrawable(this)
+                              if (drawable is BitmapDrawable) {
+                                  NavState.navIcon = drawable.bitmap
+                              } else if (drawable != null) {
+                                  val bmp = Bitmap.createBitmap(
+                                      drawable.intrinsicWidth.coerceAtLeast(1),
+                                      drawable.intrinsicHeight.coerceAtLeast(1),
+                                      Bitmap.Config.ARGB_8888
+                                  )
+                                  val canvas = Canvas(bmp)
+                                  drawable.setBounds(0, 0, canvas.width, canvas.height)
+                                  drawable.draw(canvas)
+                                  NavState.navIcon = bmp
+                              }
+                          }
+                      } catch (_: Exception) {}
+                  }
+              }
+
+              private fun attachToController(controllers: List<MediaController>?) {
+                  if (controllers.isNullOrEmpty()) return
+                  val controller = controllers.firstOrNull {
+                      it.playbackState?.state == PlaybackState.STATE_PLAYING
+                  } ?: controllers.first()
+
+                  activeController?.unregisterCallback(callback)
+                  activeController = controller
+                  controller.registerCallback(callback)
+                  updateMetadata(controller.metadata)
+                  MediaState.isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING
+              }
+
+              private fun updateMetadata(metadata: MediaMetadata?) {
+                  if (metadata == null) return
+                  val title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE)
+                      ?: metadata.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+                  val artist = metadata.getString(MediaMetadata.METADATA_KEY_ARTIST)
+                      ?: metadata.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+                      ?: metadata.getString(MediaMetadata.METADATA_KEY_AUTHOR)
+                  val art = metadata.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+                      ?: metadata.getBitmap(MediaMetadata.METADATA_KEY_ART)
+
+                  if (!title.isNullOrBlank()) {
+                      MediaState.title = title
+                      MediaState.artist = if (!artist.isNullOrBlank()) artist else "YouTube Music"
+                      MediaState.albumArt = art
+                  }
+              }
+
+              override fun onListenerDisconnected() {
+                  super.onListenerDisconnected()
+                  try {
+                      mediaSessionManager?.removeOnActiveSessionsChangedListener(sessionListener)
+                      activeController?.unregisterCallback(callback)
+                  } catch (_: Exception) {}
+              }
+          }
           EOF
 
           cat << 'EOF' > app/src/main/java/com/fyt/carlauncher/MainActivity.kt
@@ -121,14 +301,22 @@ jobs:
 
           import android.Manifest
           import android.content.BroadcastReceiver
+          import android.content.ComponentName
           import android.content.Context
           import android.content.Intent
           import android.content.IntentFilter
           import android.content.pm.PackageManager
+          import android.graphics.Bitmap
+          import android.graphics.Canvas
+          import android.graphics.drawable.BitmapDrawable
+          import android.graphics.drawable.Drawable
           import android.location.Location
           import android.location.LocationListener
           import android.location.LocationManager
           import android.media.AudioManager
+          import android.media.MediaMetadata
+          import android.media.session.MediaSessionManager
+          import android.media.session.PlaybackState
           import android.net.Uri
           import android.os.Build
           import android.os.Bundle
@@ -137,10 +325,15 @@ jobs:
           import android.view.KeyEvent
           import android.view.WindowInsets
           import android.view.WindowInsetsController
+          import android.widget.Toast
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
           import androidx.core.app.ActivityCompat
+          import androidx.compose.foundation.ExperimentalFoundationApi
+          import androidx.compose.foundation.Image
+          import androidx.compose.foundation.background
           import androidx.compose.foundation.clickable
+          import androidx.compose.foundation.combinedClickable
           import androidx.compose.foundation.layout.*
           import androidx.compose.foundation.lazy.grid.GridCells
           import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -153,8 +346,12 @@ jobs:
           import androidx.compose.runtime.*
           import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
+          import androidx.compose.ui.draw.clip
           import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.graphics.asImageBitmap
+          import androidx.compose.ui.layout.ContentScale
           import androidx.compose.ui.text.font.FontWeight
+          import androidx.compose.ui.text.style.TextAlign
           import androidx.compose.ui.text.style.TextOverflow
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
@@ -163,37 +360,26 @@ jobs:
           import java.text.SimpleDateFormat
           import java.util.*
 
-          data class AppInfo(val label: String, val packageName: String)
+          data class AppInfo(val label: String, val packageName: String, val icon: Bitmap?)
 
           class MainActivity : ComponentActivity(), LocationListener {
               private lateinit var locationManager: LocationManager
               private lateinit var audioManager: AudioManager
 
-              var currentSpeed by mutableStateOf("0")
-              var trackTitle by mutableStateOf("YouTube Music")
-              var trackArtist by mutableStateOf("Medya Bekleniyor...")
-              var isPlaying by mutableStateOf(false)
+              var currentSpeedInt by mutableStateOf(0)
+              var maxSpeedInt by mutableStateOf(0)
+              var gpsActive by mutableStateOf(false)
+              var hasNotificationPermission by mutableStateOf(false)
 
-              private val mediaReceiver = object : BroadcastReceiver() {
-                  override fun onReceive(context: Context?, intent: Intent?) {
-                      val artist = intent?.getStringExtra("artist") ?: ""
-                      val track = intent?.getStringExtra("track") ?: ""
-                      if (intent?.hasExtra("playing") == true) {
-                          isPlaying = intent.getBooleanExtra("playing", false)
-                      }
-                      if (track.isNotEmpty()) {
-                          trackTitle = track
-                          trackArtist = if (artist.isNotEmpty()) artist else "Bilinmeyen Sanatçı"
-                      }
-                  }
-              }
-
+              @OptIn(ExperimentalFoundationApi::class)
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   hideSystemUI()
 
+                  val prefs = getSharedPreferences("fyt_launcher_prefs", Context.MODE_PRIVATE)
                   locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
                   audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                  hasNotificationPermission = isNotificationServiceEnabled()
 
                   if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                       ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 100)
@@ -201,28 +387,32 @@ jobs:
                       startLocationUpdates()
                   }
 
-                  val filter = IntentFilter().apply {
-                      addAction("com.android.music.metachanged")
-                      addAction("com.android.music.playstatechanged")
-                      addAction("com.google.android.apps.youtube.music.METADATA_CHANGED")
-                  }
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                      registerReceiver(mediaReceiver, filter, Context.RECEIVER_EXPORTED)
-                  } else {
-                      registerReceiver(mediaReceiver, filter)
-                  }
-
                   setContent {
                       var isDarkTheme by remember { mutableStateOf(true) }
                       var showAppDrawer by remember { mutableStateOf(false) }
+                      var showCameraPicker by remember { mutableStateOf(false) }
+                      var selectedCameraPkg by remember {
+                          mutableStateOf(prefs.getString("camera_pkg", "com.syu.av") ?: "com.syu.av")
+                      }
+                      var selectedCameraLabel by remember {
+                          mutableStateOf(prefs.getString("camera_label", "AUX Kamera") ?: "AUX Kamera")
+                      }
                       var brightness by remember { mutableStateOf(getScreenBrightness()) }
                       var currentTime by remember { mutableStateOf("00:00") }
+                      var currentDate by remember { mutableStateOf("") }
 
                       LaunchedEffect(Unit) {
-                          val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+                          val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+                          val dateFormat = SimpleDateFormat("dd MMM", Locale("tr"))
                           while (true) {
-                              currentTime = sdf.format(Date())
-                              delay(10000L)
+                              val now = Date()
+                              currentTime = timeFormat.format(now)
+                              currentDate = dateFormat.format(now)
+                              hasNotificationPermission = isNotificationServiceEnabled()
+                              if (hasNotificationPermission) {
+                                  refreshActiveMedia()
+                              }
+                              delay(2000L)
                           }
                       }
 
@@ -246,7 +436,10 @@ jobs:
                                       verticalArrangement = Arrangement.SpaceBetween,
                                       horizontalAlignment = Alignment.CenterHorizontally
                                   ) {
-                                      Text(currentTime, color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                      Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                          Text(currentTime, color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                          Text(currentDate, color = Color.Gray, fontSize = 11.sp)
+                                      }
 
                                       IconButton(onClick = { showAppDrawer = true }, modifier = Modifier.size(48.dp)) {
                                           Icon(Icons.Default.Apps, contentDescription = "Uygulamalar", tint = textColor, modifier = Modifier.size(32.dp))
@@ -273,42 +466,107 @@ jobs:
                                       modifier = Modifier.weight(7.5f).fillMaxWidth(),
                                       horizontalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
-                                      // 2. Google Maps (5.0 Oran)
+                                      // 2. Google Maps & Canlı Navigasyon Asistanı (5.0 Oran)
                                       Card(
-                                          modifier = Modifier.weight(5.0f).fillMaxHeight().clickable {
-                                              openApp("com.google.android.apps.maps")
-                                          },
+                                          modifier = Modifier.weight(5.0f).fillMaxHeight().combinedClickable(
+                                              onClick = { openApp("com.google.android.apps.maps") },
+                                              onLongClick = { launchMapsPiP() }
+                                          ),
                                           shape = RoundedCornerShape(14.dp),
-                                          colors = CardDefaults.cardColors(containerColor = cardColor)
+                                          colors = CardDefaults.cardColors(
+                                              containerColor = if (NavState.isNavigating) Color(0xFF132A1E) else cardColor
+                                          )
                                       ) {
-                                          Column(
-                                              modifier = Modifier.fillMaxSize(),
-                                              verticalArrangement = Arrangement.Center,
-                                              horizontalAlignment = Alignment.CenterHorizontally
-                                          ) {
-                                              Icon(Icons.Default.Map, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(56.dp))
-                                              Spacer(modifier = Modifier.height(8.dp))
-                                              Text("Google Maps", color = textColor, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-                                              Text("Navigasyonu Başlat", color = Color.Gray, fontSize = 13.sp)
+                                          Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                                              // Sağ üst Yüzen Harita (PiP) ve Arama Butonları
+                                              Row(
+                                                  modifier = Modifier.align(Alignment.TopEnd),
+                                                  horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                              ) {
+                                                  AssistChip(
+                                                      onClick = { launchMapsPiP() },
+                                                      label = { Text("Yüzen Harita", fontSize = 11.sp, color = textColor) },
+                                                      leadingIcon = {
+                                                          Icon(Icons.Default.PictureInPictureAlt, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
+                                                      }
+                                                  )
+                                              }
+
+                                              if (NavState.isNavigating) {
+                                                  // Aktif Navigasyon Görünümü
+                                                  Column(
+                                                      modifier = Modifier.align(Alignment.Center),
+                                                      horizontalAlignment = Alignment.CenterHorizontally
+                                                  ) {
+                                                      if (NavState.navIcon != null) {
+                                                          Image(
+                                                              bitmap = NavState.navIcon!!.asImageBitmap(),
+                                                              contentDescription = "Yön",
+                                                              modifier = Modifier.size(64.dp)
+                                                          )
+                                                      } else {
+                                                          Icon(Icons.Default.Navigation, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(64.dp))
+                                                      }
+                                                      Spacer(modifier = Modifier.height(10.dp))
+                                                      Text(
+                                                          text = NavState.instruction,
+                                                          color = Color.White,
+                                                          fontSize = 24.sp,
+                                                          fontWeight = FontWeight.Bold,
+                                                          textAlign = TextAlign.Center,
+                                                          maxLines = 2,
+                                                          overflow = TextOverflow.Ellipsis
+                                                      )
+                                                      Spacer(modifier = Modifier.height(6.dp))
+                                                      Text(
+                                                          text = NavState.distanceEta,
+                                                          color = Color(0xFF81C784),
+                                                          fontSize = 16.sp,
+                                                          fontWeight = FontWeight.Medium,
+                                                          textAlign = TextAlign.Center
+                                                      )
+                                                  }
+                                              } else {
+                                                  // Bekleme Görünümü
+                                                  Column(
+                                                      modifier = Modifier.align(Alignment.Center),
+                                                      horizontalAlignment = Alignment.CenterHorizontally
+                                                  ) {
+                                                      Icon(Icons.Default.Map, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(60.dp))
+                                                      Spacer(modifier = Modifier.height(8.dp))
+                                                      Text("Google Maps", color = textColor, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                                                      Text("Tam Ekran İçin Dokunun • Yüzen Harita İçin Uzun Basın", color = Color.Gray, fontSize = 12.sp)
+                                                  }
+                                              }
                                           }
                                       }
 
-                                      // 3. AUX Kamera (2.4 Oran)
+                                      // 3. AUX / Kamera Seçici (2.4 Oran)
                                       Card(
-                                          modifier = Modifier.weight(2.4f).fillMaxHeight().clickable {
-                                              openApp("com.syu.av")
-                                          },
+                                          modifier = Modifier.weight(2.4f).fillMaxHeight().combinedClickable(
+                                              onClick = { openCameraTarget(selectedCameraPkg) },
+                                              onLongClick = { showCameraPicker = true }
+                                          ),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(containerColor = cardColor)
                                       ) {
-                                          Column(
-                                              modifier = Modifier.fillMaxSize(),
-                                              verticalArrangement = Arrangement.Center,
-                                              horizontalAlignment = Alignment.CenterHorizontally
-                                          ) {
-                                              Icon(Icons.Default.Videocam, contentDescription = null, tint = Color(0xFF29B6F6), modifier = Modifier.size(48.dp))
-                                              Spacer(modifier = Modifier.height(8.dp))
-                                              Text("AUX Kamera", color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                                          Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                                              IconButton(
+                                                  onClick = { showCameraPicker = true },
+                                                  modifier = Modifier.align(Alignment.TopEnd).size(28.dp)
+                                              ) {
+                                                  Icon(Icons.Default.Tune, contentDescription = "Kamera Seç", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                                              }
+                                              Column(
+                                                  modifier = Modifier.align(Alignment.Center),
+                                                  horizontalAlignment = Alignment.CenterHorizontally
+                                              ) {
+                                                  Icon(Icons.Default.Videocam, contentDescription = null, tint = Color(0xFF29B6F6), modifier = Modifier.size(48.dp))
+                                                  Spacer(modifier = Modifier.height(8.dp))
+                                                  Text(selectedCameraLabel, color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center)
+                                                  Spacer(modifier = Modifier.height(4.dp))
+                                                  Text("Değiştirmek İçin Uzun Basın", color = Color.Gray, fontSize = 10.sp)
+                                              }
                                           }
                                       }
 
@@ -317,24 +575,43 @@ jobs:
                                           modifier = Modifier.weight(2.1f).fillMaxHeight(),
                                           verticalArrangement = Arrangement.spacedBy(8.dp)
                                       ) {
+                                          val speedColor = when {
+                                              currentSpeedInt >= 130 -> Color(0xFFFF5252)
+                                              currentSpeedInt >= 100 -> Color(0xFFFFCA28)
+                                              else -> Color(0xFF00E5FF)
+                                          }
                                           Card(
-                                              modifier = Modifier.weight(1f).fillMaxWidth(),
+                                              modifier = Modifier.weight(1f).fillMaxWidth().clickable {
+                                                  maxSpeedInt = 0
+                                              },
                                               shape = RoundedCornerShape(14.dp),
                                               colors = CardDefaults.cardColors(containerColor = cardColor)
                                           ) {
-                                              Column(
-                                                  modifier = Modifier.fillMaxSize(),
-                                                  verticalArrangement = Arrangement.Center,
-                                                  horizontalAlignment = Alignment.CenterHorizontally
-                                              ) {
-                                                  Text(currentSpeed, color = Color(0xFF00E5FF), fontSize = 44.sp, fontWeight = FontWeight.Bold)
-                                                  Text("km/h", color = Color.Gray, fontSize = 13.sp)
+                                              Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                                                  Row(
+                                                      modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                                                      horizontalArrangement = Arrangement.SpaceBetween,
+                                                      verticalAlignment = Alignment.CenterVertically
+                                                  ) {
+                                                      Box(
+                                                          modifier = Modifier.size(8.dp).clip(CircleShape)
+                                                              .background(if (gpsActive) Color(0xFF4CAF50) else Color.Gray)
+                                                      )
+                                                      Text("MAX: $maxSpeedInt", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                  }
+                                                  Column(
+                                                      modifier = Modifier.align(Alignment.Center),
+                                                      horizontalAlignment = Alignment.CenterHorizontally
+                                                  ) {
+                                                      Text(currentSpeedInt.toString(), color = speedColor, fontSize = 44.sp, fontWeight = FontWeight.Bold)
+                                                      Text("km/h", color = Color.Gray, fontSize = 12.sp)
+                                                  }
                                               }
                                           }
 
                                           Card(
                                               modifier = Modifier.weight(1f).fillMaxWidth().clickable {
-                                                  openApp("de.blitzer.plus")
+                                                  openBlitzerApp()
                                               },
                                               shape = RoundedCornerShape(14.dp),
                                               colors = CardDefaults.cardColors(containerColor = cardColor)
@@ -357,7 +634,7 @@ jobs:
                                       modifier = Modifier.weight(2.5f).fillMaxWidth(),
                                       horizontalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
-                                      // 6. YouTube Music & Medya Kontrolleri (6.9 Oran)
+                                      // 6. YouTube Music & Canlı Medya Bilgisi (6.9 Oran)
                                       Card(
                                           modifier = Modifier.weight(6.9f).fillMaxHeight(),
                                           shape = RoundedCornerShape(14.dp),
@@ -370,23 +647,52 @@ jobs:
                                           ) {
                                               Row(
                                                   modifier = Modifier.weight(1f).clickable {
-                                                      openApp("com.google.android.apps.youtube.music")
+                                                      if (!hasNotificationPermission) {
+                                                          startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+                                                      } else {
+                                                          openApp("com.google.android.apps.youtube.music")
+                                                      }
                                                   },
                                                   verticalAlignment = Alignment.CenterVertically
                                               ) {
-                                                  Surface(
-                                                      modifier = Modifier.size(46.dp),
-                                                      shape = CircleShape,
-                                                      color = Color(0xFFFF5252).copy(alpha = 0.2f)
-                                                  ) {
-                                                      Box(contentAlignment = Alignment.Center) {
-                                                          Icon(Icons.Default.MusicNote, contentDescription = null, tint = Color(0xFFFF5252), modifier = Modifier.size(26.dp))
+                                                  if (MediaState.albumArt != null) {
+                                                      Image(
+                                                          bitmap = MediaState.albumArt!!.asImageBitmap(),
+                                                          contentDescription = "Albüm Kapağı",
+                                                          modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                                                          contentScale = ContentScale.Crop
+                                                      )
+                                                  } else {
+                                                      Surface(
+                                                          modifier = Modifier.size(48.dp),
+                                                          shape = CircleShape,
+                                                          color = Color(0xFFFF5252).copy(alpha = 0.2f)
+                                                      ) {
+                                                          Box(contentAlignment = Alignment.Center) {
+                                                              Icon(Icons.Default.MusicNote, contentDescription = null, tint = Color(0xFFFF5252), modifier = Modifier.size(26.dp))
+                                                          }
                                                       }
                                                   }
                                                   Spacer(modifier = Modifier.width(12.dp))
                                                   Column {
-                                                      Text(trackTitle, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                      Text(trackArtist, color = Color.Gray, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                      Text(
+                                                          text = MediaState.title,
+                                                          color = textColor,
+                                                          fontSize = 16.sp,
+                                                          fontWeight = FontWeight.Bold,
+                                                          maxLines = 1,
+                                                          overflow = TextOverflow.Ellipsis
+                                                      )
+                                                      Text(
+                                                          text = if (!hasNotificationPermission && MediaState.artist == "Medya Bekleniyor...")
+                                                              "Şarkı Bilgisi İçin Dokunup İzin Verin"
+                                                          else MediaState.artist,
+                                                          color = if (!hasNotificationPermission && MediaState.artist == "Medya Bekleniyor...")
+                                                              Color(0xFFFFCA28) else Color.Gray,
+                                                          fontSize = 13.sp,
+                                                          maxLines = 1,
+                                                          overflow = TextOverflow.Ellipsis
+                                                      )
                                                   }
                                               }
 
@@ -400,13 +706,13 @@ jobs:
                                                   FilledIconButton(
                                                       onClick = {
                                                           sendMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
-                                                          isPlaying = !isPlaying
+                                                          MediaState.isPlaying = !MediaState.isPlaying
                                                       },
                                                       colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFFF5252)),
                                                       modifier = Modifier.size(46.dp)
                                                   ) {
                                                       Icon(
-                                                          if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                                          if (MediaState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                                           contentDescription = "Oynat/Duraklat",
                                                           tint = Color.White,
                                                           modifier = Modifier.size(28.dp)
@@ -458,12 +764,12 @@ jobs:
                               }
                           }
 
-                          // UYGULAMA ÇEKMECESİ PENCERESİ (APP DRAWER)
+                          // UYGULAMA ÇEKMECESİ PENCERESİ (GERÇEK İKONLU APP DRAWER)
                           if (showAppDrawer) {
                               val apps = remember { getInstalledApps() }
                               Dialog(onDismissRequest = { showAppDrawer = false }) {
                                   Card(
-                                      modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
+                                      modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.88f),
                                       shape = RoundedCornerShape(16.dp),
                                       colors = CardDefaults.cardColors(containerColor = cardColor)
                                   ) {
@@ -480,28 +786,117 @@ jobs:
                                           }
                                           Spacer(modifier = Modifier.height(12.dp))
                                           LazyVerticalGrid(
+                                              columns = GridCells.Fixed(5),
+                                              verticalArrangement = Arrangement.spacedBy(12.dp),
+                                              horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                              modifier = Modifier.fillMaxSize()
+                                          ) {
+                                              items(apps) { app ->
+                                                  Card(
+                                                      modifier = Modifier.fillMaxWidth().height(96.dp).clickable {
+                                                          showAppDrawer = false
+                                                          openApp(app.packageName)
+                                                      },
+                                                      colors = CardDefaults.cardColors(containerColor = bgColor),
+                                                      shape = RoundedCornerShape(12.dp)
+                                                  ) {
+                                                      Column(
+                                                          modifier = Modifier.fillMaxSize().padding(8.dp),
+                                                          verticalArrangement = Arrangement.Center,
+                                                          horizontalAlignment = Alignment.CenterHorizontally
+                                                      ) {
+                                                          if (app.icon != null) {
+                                                              Image(
+                                                                  bitmap = app.icon.asImageBitmap(),
+                                                                  contentDescription = app.label,
+                                                                  modifier = Modifier.size(42.dp)
+                                                              )
+                                                          } else {
+                                                              Icon(Icons.Default.Android, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(42.dp))
+                                                          }
+                                                          Spacer(modifier = Modifier.height(6.dp))
+                                                          Text(
+                                                              text = app.label,
+                                                              color = textColor,
+                                                              fontSize = 12.sp,
+                                                              maxLines = 1,
+                                                              overflow = TextOverflow.Ellipsis,
+                                                              textAlign = TextAlign.Center
+                                                          )
+                                                      }
+                                                  }
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+
+                          // AUX / KAMERA UYGULAMASI SEÇİCİ PENCERESİ
+                          if (showCameraPicker) {
+                              val allApps = remember { getInstalledApps() }
+                              val presets = listOf(
+                                  AppInfo("AUX Girişi (FYT)", "com.syu.av", null),
+                                  AppInfo("Ön Kamera (F-Cam)", "com.syu.fcam", null),
+                                  AppInfo("Kayıt Kamerası (DVR)", "com.syu.dvr", null),
+                                  AppInfo("FYT Kamera", "com.syu.camera", null)
+                              )
+                              Dialog(onDismissRequest = { showCameraPicker = false }) {
+                                  Card(
+                                      modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
+                                      shape = RoundedCornerShape(16.dp),
+                                      colors = CardDefaults.cardColors(containerColor = cardColor)
+                                  ) {
+                                      Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                                          Row(
+                                              modifier = Modifier.fillMaxWidth(),
+                                              horizontalArrangement = Arrangement.SpaceBetween,
+                                              verticalAlignment = Alignment.CenterVertically
+                                          ) {
+                                              Text("Kamera / Video Kaynağını Seçin", color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                                              IconButton(onClick = { showCameraPicker = false }) {
+                                                  Icon(Icons.Default.Close, contentDescription = "Kapat", tint = textColor)
+                                              }
+                                          }
+                                          Spacer(modifier = Modifier.height(8.dp))
+                                          LazyVerticalGrid(
                                               columns = GridCells.Fixed(4),
                                               verticalArrangement = Arrangement.spacedBy(10.dp),
                                               horizontalArrangement = Arrangement.spacedBy(10.dp),
                                               modifier = Modifier.fillMaxSize()
                                           ) {
-                                              items(apps) { app ->
+                                              items(presets + allApps) { item ->
                                                   Card(
-                                                      modifier = Modifier.fillMaxWidth().height(64.dp).clickable {
-                                                          showAppDrawer = false
-                                                          openApp(app.packageName)
+                                                      modifier = Modifier.fillMaxWidth().height(84.dp).clickable {
+                                                          selectedCameraPkg = item.packageName
+                                                          selectedCameraLabel = item.label
+                                                          prefs.edit()
+                                                              .putString("camera_pkg", item.packageName)
+                                                              .putString("camera_label", item.label)
+                                                              .apply()
+                                                          showCameraPicker = false
+                                                          openCameraTarget(item.packageName)
                                                       },
                                                       colors = CardDefaults.cardColors(containerColor = bgColor),
                                                       shape = RoundedCornerShape(10.dp)
                                                   ) {
-                                                      Box(modifier = Modifier.fillMaxSize().padding(8.dp), contentAlignment = Alignment.Center) {
-                                                          Text(
-                                                              text = app.label,
-                                                              color = textColor,
-                                                              fontSize = 14.sp,
-                                                              maxLines = 2,
-                                                              overflow = TextOverflow.Ellipsis
-                                                          )
+                                                      Column(
+                                                          modifier = Modifier.fillMaxSize().padding(6.dp),
+                                                          verticalArrangement = Arrangement.Center,
+                                                          horizontalAlignment = Alignment.CenterHorizontally
+                                                      ) {
+                                                          if (item.icon != null) {
+                                                              Image(
+                                                                  bitmap = item.icon.asImageBitmap(),
+                                                                  contentDescription = item.label,
+                                                                  modifier = Modifier.size(32.dp)
+                                                              )
+                                                          } else {
+                                                              Icon(Icons.Default.Videocam, contentDescription = null, tint = Color(0xFF29B6F6), modifier = Modifier.size(30.dp))
+                                                          }
+                                                          Spacer(modifier = Modifier.height(4.dp))
+                                                          Text(item.label, color = textColor, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                          Text(item.packageName, color = Color.Gray, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                       }
                                                   }
                                               }
@@ -512,6 +907,88 @@ jobs:
                           }
                       }
                   }
+              }
+
+              override fun onResume() {
+                  super.onResume()
+                  hideSystemUI()
+                  hasNotificationPermission = isNotificationServiceEnabled()
+                  if (hasNotificationPermission) {
+                      refreshActiveMedia()
+                  }
+              }
+
+              private fun launchMapsPiP() {
+                  try {
+                      // Google Maps Sürüş Modunu başlatıp 2.5 sn sonra Ana Ekrana dönerek PiP küçük penceresini tetikler
+                      val intent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=")).apply {
+                          setPackage("com.google.android.apps.maps")
+                          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                      }
+                      startActivity(intent)
+                      window.decorView.postDelayed({
+                          val homeIntent = Intent(this, MainActivity::class.java).apply {
+                              addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                          }
+                          startActivity(homeIntent)
+                      }, 2500L)
+                  } catch (_: Exception) {
+                      openApp("com.google.android.apps.maps")
+                  }
+              }
+
+              private fun openCameraTarget(pkg: String) {
+                  val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+                  if (launchIntent != null) {
+                      startActivity(launchIntent)
+                  } else {
+                      Toast.makeText(this, "Uygulama bulunamadı ($pkg). Uzun basarak başka kamera seçin.", Toast.LENGTH_SHORT).show()
+                  }
+              }
+
+              private fun openBlitzerApp() {
+                  val candidates = listOf("de.blitzer.plus", "de.blitzer", "Zz.blitzer.plus")
+                  for (pkg in candidates) {
+                      val intent = packageManager.getLaunchIntentForPackage(pkg)
+                      if (intent != null) {
+                          startActivity(intent)
+                          return
+                      }
+                  }
+                  Toast.makeText(this, "Blitzer.de yüklü değil", Toast.LENGTH_SHORT).show()
+              }
+
+              private fun isNotificationServiceEnabled(): Boolean {
+                  val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+                  return flat != null && flat.contains(packageName)
+              }
+
+              private fun refreshActiveMedia() {
+                  try {
+                      val msm = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
+                      val component = ComponentName(this, MediaNotificationListener::class.java)
+                      val controllers = msm.getActiveSessions(component)
+                      if (controllers.isNotEmpty()) {
+                          val controller = controllers.firstOrNull {
+                              it.playbackState?.state == PlaybackState.STATE_PLAYING
+                          } ?: controllers.first()
+                          val meta = controller.metadata
+                          if (meta != null) {
+                              val title = meta.getString(MediaMetadata.METADATA_KEY_TITLE)
+                                  ?: meta.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+                              val artist = meta.getString(MediaMetadata.METADATA_KEY_ARTIST)
+                                  ?: meta.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+                              val art = meta.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+                                  ?: meta.getBitmap(MediaMetadata.METADATA_KEY_ART)
+                              if (!title.isNullOrBlank()) {
+                                  MediaState.title = title
+                                  MediaState.artist = if (!artist.isNullOrBlank()) artist else "YouTube Music"
+                                  MediaState.albumArt = art
+                              }
+                          }
+                          MediaState.isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING
+                      }
+                  } catch (_: Exception) {}
               }
 
               private fun sendMediaKey(keyCode: Int) {
@@ -541,6 +1018,23 @@ jobs:
                   }
               }
 
+              private fun drawableToBitmap(drawable: Drawable): Bitmap? {
+                  return try {
+                      if (drawable is BitmapDrawable && drawable.bitmap != null) {
+                          return drawable.bitmap
+                      }
+                      val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else 96
+                      val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else 96
+                      val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                      val canvas = Canvas(bitmap)
+                      drawable.setBounds(0, 0, canvas.width, canvas.height)
+                      drawable.draw(canvas)
+                      bitmap
+                  } catch (_: Exception) {
+                      null
+                  }
+              }
+
               private fun getInstalledApps(): List<AppInfo> {
                   val pm = packageManager
                   val intent = Intent(Intent.ACTION_MAIN, null).apply {
@@ -549,7 +1043,8 @@ jobs:
                   return pm.queryIntentActivities(intent, 0).map {
                       AppInfo(
                           label = it.loadLabel(pm).toString(),
-                          packageName = it.activityInfo.packageName
+                          packageName = it.activityInfo.packageName,
+                          icon = drawableToBitmap(it.loadIcon(pm))
                       )
                   }.distinctBy { it.packageName }.sortedBy { it.label.lowercase() }
               }
@@ -568,13 +1063,20 @@ jobs:
               }
 
               override fun onLocationChanged(location: Location) {
-                  currentSpeed = ((location.speed * 3.6f).toInt()).toString()
+                  gpsActive = true
+                  val kmh = (location.speed * 3.6f).toInt()
+                  currentSpeedInt = kmh
+                  if (kmh > maxSpeedInt) {
+                      maxSpeedInt = kmh
+                  }
               }
 
               private fun openApp(packageName: String) {
                   val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
                   if (launchIntent != null) {
                       startActivity(launchIntent)
+                  } else {
+                      Toast.makeText(this, "Uygulama bulunamadı: $packageName", Toast.LENGTH_SHORT).show()
                   }
               }
 
@@ -585,11 +1087,6 @@ jobs:
                           it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                       }
                   }
-              }
-
-              override fun onDestroy() {
-                  super.onDestroy()
-                  try { unregisterReceiver(mediaReceiver) } catch (_: Exception) {}
               }
           }
           EOF
