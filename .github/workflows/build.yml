@@ -1,0 +1,41 @@
+name: Build FYT Car Launcher APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Depoyu Cek
+        uses: actions/checkout@v4
+
+      - name: 2. Python Kurulum Scriptini Calistir
+        run: |
+          python3 FYT_1600x720_CarLauncher_Kurulum.py
+
+      - name: 3. JDK 17 Kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 4. Android SDK Kur
+        uses: android-actions/setup-android@v3
+
+      - name: 5. Gradle Kur ve APK Derle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
+
+      - name: 6. Debug APK Olustur
+        run: |
+          gradle assembleDebug --no-daemon
+
+      - name: 7. Hazir APK Dosyasini Yukle
+        uses: actions/upload-artifact@v4
+        with:
+          name: FYT-1600x720-Car-Launcher-APK
+          path: app/build/outputs/apk/debug/*.apk
