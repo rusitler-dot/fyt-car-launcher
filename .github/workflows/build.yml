@@ -158,18 +158,24 @@ jobs:
                   setContent {
                       Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF121212)) {
                           Row(modifier = Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                              Card(modifier = Modifier.weight(1.2f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                              // 1. Dock (Sol Menü)
+                              Card(modifier = Modifier.weight(1.0f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
                                   Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Dock", color = Color.White, fontSize = 14.sp) }
                               }
-                              Column(modifier = Modifier.weight(8.8f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                  Row(modifier = Modifier.weight(6.5f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                      Card(modifier = Modifier.weight(4.2f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                              // Sağ Alanlar
+                              Column(modifier = Modifier.weight(9.0f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                  // Üst Satır (Maps, AUX Kamera, Hız / Blitzer)
+                                  Row(modifier = Modifier.weight(7.5f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                      // Maps (Kalan tüm alan)
+                                      Card(modifier = Modifier.weight(5.0f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
                                           Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Google Maps", color = Color.LightGray, fontSize = 16.sp) }
                                       }
-                                      Card(modifier = Modifier.weight(3.2f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                                      // AUX Kamera (Biraz daha ince)
+                                      Card(modifier = Modifier.weight(2.4f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
                                           Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("AUX Kamera", color = Color.LightGray, fontSize = 14.sp) }
                                       }
-                                      Column(modifier = Modifier.weight(2.6f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                      // Hız ve Blitzer Sütunu
+                                      Column(modifier = Modifier.weight(2.1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                           Card(modifier = Modifier.weight(1f).fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
                                               Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("$currentSpeed km/h", color = Color.Cyan, fontSize = 18.sp) }
                                           }
@@ -178,11 +184,12 @@ jobs:
                                           }
                                       }
                                   }
-                                  Row(modifier = Modifier.weight(3.5f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                      Card(modifier = Modifier.weight(7f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
-                                          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(trackTitle, color = Color.LightGray, fontSize = 16.sp) }
+                                  // Alt Satır (YouTube Music ve Tema - Yarı Yarıya İnce)
+                                  Row(modifier = Modifier.weight(2.5f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                      Card(modifier = Modifier.weight(6.9f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                                          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(trackTitle, color = Color.LightGray, fontSize = 15.sp) }
                                       }
-                                      Card(modifier = Modifier.weight(3f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
+                                      Card(modifier = Modifier.weight(3.1f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
                                           Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tema / Parlaklık", color = Color.LightGray, fontSize = 14.sp) }
                                       }
                                   }
