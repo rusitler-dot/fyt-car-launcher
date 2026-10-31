@@ -96,9 +96,7 @@ jobs:
               <uses-permission android:name="android.permission.WRITE_SETTINGS" />
               <application
                   android:allowBackup="true"
-                  android:icon="@mipmap/ic_launcher"
-                  android:label="FYT Car Launcher"
-                  android:theme="@style/Theme.FYTCarLauncher">
+                  android:label="FYT Car Launcher">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
