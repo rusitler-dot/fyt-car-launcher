@@ -107,22 +107,54 @@ jobs:
 
           cat << 'EOF' > app/src/main/java/com/fyt/carlauncher/MainActivity.kt
           package com.fyt.carlauncher
+          import android.Manifest
+          import android.content.BroadcastReceiver
+          import android.content.Context
+          import android.content.Intent
+          import android.content.IntentFilter
+          import android.content.pm.PackageManager
+          import android.location.Location
+          import android.location.LocationListener
+          import android.location.LocationManager
           import android.os.Bundle
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
+          import androidx.core.app.ActivityCompat
           import androidx.compose.foundation.background
           import androidx.compose.foundation.layout.*
           import androidx.compose.foundation.shape.RoundedCornerShape
           import androidx.compose.material3.*
+          import androidx.compose.runtime.*
           import androidx.compose.ui.Alignment
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.unit.dp
           import androidx.compose.ui.unit.sp
 
-          class MainActivity : ComponentActivity() {
+          class MainActivity : ComponentActivity(), LocationListener {
+              private lateinit var locationManager: LocationManager
+              var currentSpeed by mutableStateOf("0")
+              var trackTitle by mutableStateOf("YouTube Music - Bekleniyor...")
+              private val mediaReceiver = object : BroadcastReceiver() {
+                  override fun onReceive(context: Context?, intent: Intent?) {
+                      val artist = intent?.getStringExtra("artist") ?: ""
+                      val track = intent?.getStringExtra("track") ?: ""
+                      if (track.isNotEmpty()) {
+                          trackTitle = if (artist.isNotEmpty()) "$artist - $track" else track
+                      }
+                  }
+              }
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
+                  locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                  if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                      locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 1f, this)
+                  }
+                  val filter = IntentFilter().apply {
+                      addAction("com.android.music.metachanged")
+                      addAction("com.google.android.apps.youtube.music.METADATA_CHANGED")
+                  }
+                  registerReceiver(mediaReceiver, filter)
                   setContent {
                       Surface(modifier = Modifier.fillMaxSize(), color = Color(0xFF121212)) {
                           Row(modifier = Modifier.fillMaxSize().padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -139,7 +171,7 @@ jobs:
                                       }
                                       Column(modifier = Modifier.weight(2.6f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                           Card(modifier = Modifier.weight(1f).fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
-                                              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("0 km/h", color = Color.Cyan, fontSize = 18.sp) }
+                                              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("$currentSpeed km/h", color = Color.Cyan, fontSize = 18.sp) }
                                           }
                                           Card(modifier = Modifier.weight(1f).fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
                                               Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Blitzer.de", color = Color.Yellow, fontSize = 14.sp) }
@@ -148,7 +180,7 @@ jobs:
                                   }
                                   Row(modifier = Modifier.weight(3.5f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                       Card(modifier = Modifier.weight(7f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
-                                          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("YouTube Music", color = Color.LightGray, fontSize = 16.sp) }
+                                          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(trackTitle, color = Color.LightGray, fontSize = 16.sp) }
                                       }
                                       Card(modifier = Modifier.weight(3f).fillMaxHeight(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))) {
                                           Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Tema / Parlaklık", color = Color.LightGray, fontSize = 14.sp) }
@@ -158,6 +190,13 @@ jobs:
                           }
                       }
                   }
+              }
+              override fun onLocationChanged(location: Location) {
+                  currentSpeed = ((location.speed * 3.6).toInt()).toString()
+              }
+              override fun onDestroy() {
+                  super.onDestroy()
+                  try { unregisterReceiver(mediaReceiver) } catch (_: Exception) {}
               }
           }
           EOF
