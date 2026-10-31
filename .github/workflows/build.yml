@@ -88,38 +88,142 @@ jobs:
           }
           EOF
 
-          cat << 'EOF' > app/src/main/AndroidManifest.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <uses-permission android:name="android.permission.CAMERA" />
-              <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-              <application
-                  android:allowBackup="true"
-                  android:label="FYT Car Launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:theme="@style/Theme.FYTCarLauncher">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                          <category android:name="android.intent.category.HOME" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
+          cat << 'EOF' > app/src/main/java/com/fyt/carlauncher/MainActivity.kt
+          package com.fyt.carlauncher
+          import android.os.Bundle
+          import androidx.activity.ComponentActivity
+          import androidx.activity.compose.setContent
+          import androidx.compose.foundation.background
+          import androidx.compose.foundation.layout.*
+          import androidx.compose.material3.*
+          import androidx.compose.runtime.*
+          import androidx.compose.ui.Alignment
+          import androidx.compose.ui.Modifier
+          import androidx.compose.ui.graphics.Color
+          import androidx.compose.ui.unit.dp
+          import androidx.compose.ui.unit.sp
 
-          cat << 'EOF' > app/src/main/res/values/themes.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <style name="Theme.FYTCarLauncher" parent="android:Theme.Material.NoActionBar">
-                  <item name="android:windowNoTitle">true</item>
-                  <item name="android:windowFullscreen">true</item>
-              </style>
-          </resources>
+          class MainActivity : ComponentActivity() {
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  setContent {
+                      Surface(
+                          modifier = Modifier.fillMaxSize(),
+                          color = Color.Black
+                      ) {
+                          // 7-Zone FYT Car Launcher Grid Layout (1600x720)
+                          Row(modifier = Modifier.fillMaxSize()) {
+                              // Sol Dock / Menü Alanı
+                              Box(
+                                  modifier = Modifier
+                                      .weight(1.5f)
+                                      .fillMaxHeight()
+                                      .background(Color.DarkGray),
+                                  contentAlignment = Alignment.Center
+                              ) {
+                                  Text("Dock / Menü", color = Color.White, fontSize = 16.sp)
+                              }
+
+                              // Orta Alan (Modüller)
+                              Column(
+                                  modifier = Modifier
+                                      .weight(8.5f)
+                                      .fillMaxHeight()
+                                  ,
+                                  verticalArrangement = Arrangement.SpaceBetween
+                              ) {
+                                  // Üst Satır (Harita, AUX Kamera, Hız Göstergesi)
+                                  Row(
+                                      modifier = Modifier
+                                          .weight(6f)
+                                          .fillMaxWidth(),
+                                      horizontalArrangement = Arrangement.SpaceBetween
+                                  ) {
+                                      Box(
+                                          modifier = Modifier
+                                              .weight(4f)
+                                              .fillMaxHeight()
+                                              .padding(4px)
+                                              .background(Color.Gray),
+                                          contentAlignment = Alignment.Center
+                                      ) {
+                                          Text("Harita (Maps)", color = Color.White, fontSize = 18.sp)
+                                      }
+
+                                      Box(
+                                          modifier = Modifier
+                                              .weight(3f)
+                                              .fillMaxHeight()
+                                              .padding(4px)
+                                              .background(Color.DarkGray),
+                                          contentAlignment = Alignment.Center
+                                      ) {
+                                          Text("AUX Kamera / GLSL", color = Color.White, fontSize = 16.sp)
+                                      }
+
+                                      Column(
+                                          modifier = Modifier
+                                              .weight(3f)
+                                              .fillMaxHeight()
+                                              .padding(4px),
+                                          verticalArrangement = Arrangement.SpaceBetween
+                                      ) {
+                                          Box(
+                                              modifier = Modifier
+                                                  .weight(1f)
+                                                  .fillMaxWidth()
+                                                  .background(Color.Gray),
+                                              contentAlignment = Alignment.Center
+                                          ) {
+                                              Text("GPS Hız / Limit", color = Color.White, fontSize = 14.sp)
+                                          }
+                                          Box(
+                                              modifier = Modifier
+                                                  .weight(1f)
+                                                  .fillMaxWidth()
+                                                  .background(Color.DarkGray),
+                                              contentAlignment = Alignment.Center
+                                          ) {
+                                              Text("Blitzer.de", color = Color.White, fontSize = 14.sp)
+                                          }
+                                      }
+                                  }
+
+                                  // Alt Satır (Müzik ve Tema/Parlaklık)
+                                  Row(
+                                      modifier = Modifier
+                                          .weight(4f)
+                                          .fillMaxWidth(),
+                                      horizontalArrangement = Arrangement.SpaceBetween
+                                  ) {
+                                      Box(
+                                          modifier = Modifier
+                                              .weight(7f)
+                                              .fillMaxHeight()
+                                              .padding(4px)
+                                              .background(Color.Gray),
+                                          contentAlignment = Alignment.Center
+                                      ) {
+                                          Text("YouTube Music Player", color = Color.White, fontSize = 16.sp)
+                                      }
+
+                                      Box(
+                                          modifier = Modifier
+                                              .weight(3f)
+                                              .fillMaxHeight()
+                                              .padding(4px)
+                                              .background(Color.DarkGray),
+                                          contentAlignment = Alignment.Center
+                                      ) {
+                                          Text("Tema / Parlaklık", color = Color.White, fontSize = 14.sp)
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+          }
           EOF
 
           cat << 'EOF' > app/src/main/java/com/fyt/carlauncher/MainActivity.kt
