@@ -1,134 +1,11 @@
-name: Build FYT Car Launcher APK
-
-on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
-
-jobs:
-  build-apk:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 1. Depoyu Cek
-        uses: actions/checkout@v4
-
-      - name: 2. JDK 17 Kur
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: 3. Proje Klasorlerini ve Dosyalarini Eksiksiz Olustur
-        run: |
-          mkdir -p app/src/main/java/com/fyt/carlauncher app/src/main/res/values
-
-          cat << 'EOF' > settings.gradle.kts
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "FYTCarLauncher"
-          include(":app")
-          EOF
-
-          cat << 'EOF' > build.gradle.kts
-          plugins {
-              id("com.android.application") version "8.2.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.22" apply false
-          }
-          EOF
-
-          cat << 'EOF' > gradle.properties
-          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          android.nonTransitiveRClass=true
-          EOF
-
-          cat << 'EOF' > app/build.gradle.kts
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-          }
-          android {
-              namespace = "com.fyt.carlauncher"
-              compileSdk = 34
-              defaultConfig {
-                  applicationId = "com.fyt.carlauncher"
-                  minSdk = 28
-                  targetSdk = 29
-                  versionCode = 1
-                  versionName = "1.0"
-              }
-              buildFeatures { compose = true }
-              composeOptions { kotlinCompilerExtensionVersion = "1.5.10" }
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-              kotlinOptions { jvmTarget = "17" }
-          }
-          dependencies {
-              implementation("androidx.core:core-ktx:1.12.0")
-              implementation("androidx.activity:activity-compose:1.8.2")
-              implementation(platform("androidx.compose:compose-bom:2024.02.00"))
-              implementation("androidx.compose.ui:ui")
-              implementation("androidx.compose.material3:material3")
-              implementation("androidx.compose.material:material-icons-extended")
-              implementation("com.google.android.gms:play-services-location:21.1.0")
-          }
-          EOF
-
-          cat << 'EOF' > app/src/main/AndroidManifest.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-              <uses-permission android:name="android.permission.CAMERA" />
-              <uses-permission android:name="android.permission.WRITE_SETTINGS" />
-              <application
-                  android:allowBackup="true"
-                  android:label="FYT Car Launcher">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:theme="@style/Theme.FYTCarLauncher">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                          <category android:name="android.intent.category.HOME" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-
-          cat << 'EOF' > app/src/main/res/values/themes.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <style name="Theme.FYTCarLauncher" parent="android:Theme.Material.NoActionBar">
-                  <item name="android:windowNoTitle">true</item>
-                  <item name="android:windowFullscreen">true</item>
-              </style>
-          </resources>
-          EOF
-
-          cat << 'EOF' > app/src/main/java/com/fyt/carlauncher/MainActivity.kt
+cat << 'EOF' > app/src/main/java/com/fyt/carlauncher/MainActivity.kt
           package com.fyt.carlauncher
           import android.os.Bundle
           import androidx.activity.ComponentActivity
           import androidx.activity.compose.setContent
           import androidx.compose.foundation.background
           import androidx.compose.foundation.layout.*
+          import androidx.compose.foundation.shape.RoundedCornerShape
           import androidx.compose.material3.*
           import androidx.compose.runtime.*
           import androidx.compose.ui.Alignment
@@ -143,45 +20,108 @@ jobs:
                   setContent {
                       Surface(
                           modifier = Modifier.fillMaxSize(),
-                          color = Color.Black
+                          color = Color(0xFF121212)
                       ) {
-                          Row(modifier = Modifier.fillMaxSize()) {
-                              Box(
-                                  modifier = Modifier.weight(1.5f).fillMaxHeight().background(Color.DarkGray),
-                                  contentAlignment = Alignment.Center
+                          Row(
+                              modifier = Modifier.fillMaxSize().padding(8.dp),
+                              horizontalArrangement = Arrangement.spacedBy(8.dp)
+                          ) {
+                              // 1. Bölge: Sol Dock / Menü
+                              Card(
+                                  modifier = Modifier.weight(1.2f).fillMaxHeight(),
+                                  shape = RoundedCornerShape(12.dp),
+                                  colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
                               ) {
-                                  Text("Dock", color = Color.White, fontSize = 16.sp)
+                                  Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                      Text("Dock", color = Color.White, fontSize = 14.sp)
+                                  }
                               }
+
+                              // Orta Alan Kartları (2 ila 7. Bölgeler)
                               Column(
-                                  modifier = Modifier.weight(8.5f).fillMaxHeight(),
-                                  verticalArrangement = Arrangement.SpaceBetween
+                                  modifier = Modifier.weight(8.8f).fillMaxHeight(),
+                                  verticalArrangement = Arrangement.spacedBy(8.dp)
                               ) {
+                                  // Üst Satır
                                   Row(
-                                      modifier = Modifier.weight(6f).fillMaxWidth(),
-                                      horizontalArrangement = Arrangement.SpaceBetween
+                                      modifier = Modifier.weight(6.5f).fillMaxWidth(),
+                                      horizontalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
-                                      Box(
-                                          modifier = Modifier.weight(4f).fillMaxHeight().background(Color.Gray),
-                                          contentAlignment = Alignment.Center
+                                      // 2. Bölge: Harita (Maps)
+                                      Card(
+                                         modifier = Modifier.weight(4.2f).fillMaxHeight(),
+                                         shape = RoundedCornerShape(12.dp),
+                                         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
                                       ) {
-                                          Text("Maps", color = Color.White, fontSize = 18.sp)
+                                          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                              Text("Google Maps / Navigasyon", color = Color.LightGray, fontSize = 16.sp)
+                                          }
                                       }
-                                      Box(
-                                          modifier = Modifier.weight(3f).fillMaxHeight().background(Color.DarkGray),
-                                          contentAlignment = Alignment.Center
+
+                                      // 3. Bölge: AUX Kamera + GLSL
+                                      Card(
+                                          modifier = Modifier.weight(3.2f).fillMaxHeight(),
+                                          shape = RoundedCornerShape(12.dp),
+                                          colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
                                       ) {
-                                          Text("AUX Kamera", color = Color.White, fontSize = 16.sp)
+                                          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                              Text("AUX Kamera (GLSL)", color = Color.LightGray, fontSize = 14.sp)
+                                          }
+                                      }
+
+                                      // Sağ Kolon (Hız ve Blitzer)
+                                      Column(
+                                          modifier = Modifier.weight(2.6f).fillMaxHeight(),
+                                          verticalArrangement = Arrangement.spacedBy(8.dp)
+                                      ) {
+                                          // 4. Bölge: GPS Hız ve Limit
+                                          Card(
+                                              modifier = Modifier.weight(1f).fillMaxWidth(),
+                                              shape = RoundedCornerShape(12.dp),
+                                              colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
+                                          ) {
+                                              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                  Text("0 km/h", color = Color.Cyan, fontSize = 18.sp)
+                                              }
+                                          }
+                                          // 5. Bölge: Blitzer.de
+                                          Card(
+                                              modifier = Modifier.weight(1f).fillMaxWidth(),
+                                              shape = RoundedCornerShape(12.dp),
+                                              colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
+                                          ) {
+                                              Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                                  Text("Blitzer.de", color = Color.Yellow, fontSize = 14.sp)
+                                              }
+                                          }
                                       }
                                   }
+
+                                  // Alt Satır
                                   Row(
-                                      modifier = Modifier.weight(4f).fillMaxWidth(),
-                                      horizontalArrangement = Arrangement.SpaceBetween
+                                      modifier = Modifier.weight(3.5f).fillMaxWidth(),
+                                      horizontalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
-                                      Box(
-                                          modifier = Modifier.weight(7f).fillMaxHeight().background(Color.Gray),
-                                          contentAlignment = Alignment.Center
+                                      // 6. Bölge: YouTube Music
+                                      Card(
+                                          modifier = Modifier.weight(7f).fillMaxHeight(),
+                                          shape = RoundedCornerShape(12.dp),
+                                          colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
                                       ) {
-                                          Text("YouTube Music", color = Color.White, fontSize = 16.sp)
+                                          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                              Text("YouTube Music - Çalıyor...", color = Color.LightGray, fontSize = 14.sp)
+                                          }
+                                      }
+
+                                      // 7. Bölge: Tema / Parlaklık Kontrolü
+                                      Card(
+                                          modifier = Modifier.weight(3f).fillMaxHeight(),
+                                          shape = RoundedCornerShape(12.dp),
+                                          colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
+                                      ) {
+                                          Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                              Text("Tema / Parlaklık", color = Color.LightGray, fontSize = 14.sp)
+                                          }
                                       }
                                   }
                               }
@@ -191,17 +131,3 @@ jobs:
               }
           }
           EOF
-
-      - name: 4. Gradle 8.5 İndir ve APK Derle
-        run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
-          unzip -q gradle-8.5-bin.zip
-          export PATH=$PWD/gradle-8.5/bin:$PATH
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
-          gradle assembleDebug --no-daemon
-
-      - name: 5. Hazır APK Dosyasını Yükle
-        uses: actions/upload-artifact@v4
-        with:
-          name: FYT-1600x720-Car-Launcher-APK
-          path: app/build/outputs/apk/debug/*.apk
