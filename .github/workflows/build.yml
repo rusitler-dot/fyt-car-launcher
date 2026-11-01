@@ -66,8 +66,8 @@ jobs:
                   applicationId = "com.fyt.carlauncher"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 18
-                  versionName = "2.4"
+                  versionCode = 19
+                  versionName = "2.5"
               }
               buildFeatures { compose = true }
               composeOptions { kotlinCompilerExtensionVersion = "1.5.10" }
@@ -106,7 +106,7 @@ jobs:
 
               <application
                   android:allowBackup="true"
-                  android:label="FYT Car Launcher"
+                  android:label="Y_RUSITLER CAR LAUNCHER"
                   android:supportsRtl="true"
                   android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
                   <activity
@@ -481,47 +481,61 @@ jobs:
                       val cardColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color(0xFFFFFFFF)
                       val subCardColor = if (isDarkTheme) Color(0xFF242424) else Color(0xFFF2F2F2)
                       val textColor = if (isDarkTheme) Color.White else Color(0xFF121212)
+                      val borderColor = if (isDarkTheme) Color(0xFF333333) else Color(0xFFCCCCCC)
 
                       Surface(modifier = Modifier.fillMaxSize(), color = bgColor) {
                           Column(
                               modifier = Modifier.fillMaxSize().padding(8.dp),
                               verticalArrangement = Arrangement.spacedBy(8.dp)
                           ) {
-                              // ================= 1. BÖLÜM: SES FEDERİ (Canlı Ses Mikseri) =================
+                              // ================= 1. BÖLÜM: SES FEDERİ & TELİF İMZASI =================
                               Card(
-                                  modifier = Modifier.fillMaxWidth().height(44.dp),
+                                  modifier = Modifier.fillMaxWidth().height(52.dp).border(1.dp, borderColor, RoundedCornerShape(12.dp)),
                                   shape = RoundedCornerShape(12.dp),
                                   colors = CardDefaults.cardColors(containerColor = cardColor)
                               ) {
-                                  Row(
-                                      modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
-                                      verticalAlignment = Alignment.CenterVertically,
-                                      horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                  Column(
+                                      modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 4.dp),
+                                      verticalArrangement = Arrangement.Center
                                   ) {
-                                      Icon(Icons.Default.VolumeUp, contentDescription = "Ses", tint = Color(0xFF00E5FF), modifier = Modifier.size(22.dp))
-                                      Text("SES", color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                      Slider(
-                                          value = currentVolume,
-                                          onValueChange = { newVal ->
-                                              currentVolume = newVal
-                                              val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                              val targetVol = (newVal * max).toInt()
-                                              audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
-                                          },
-                                          valueRange = 0f..1f,
-                                          modifier = Modifier.weight(1f),
-                                          colors = SliderDefaults.colors(
-                                              thumbColor = Color(0xFF00E5FF),
-                                              activeTrackColor = Color(0xFF00E5FF)
+                                      Row(
+                                          modifier = Modifier.fillMaxWidth(),
+                                          verticalAlignment = Alignment.CenterVertically,
+                                          horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                      ) {
+                                          Icon(Icons.Default.VolumeUp, contentDescription = "Ses", tint = Color(0xFF00E5FF), modifier = Modifier.size(20.dp))
+                                          Text("SES", color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                          Slider(
+                                              value = currentVolume,
+                                              onValueChange = { newVal ->
+                                                  currentVolume = newVal
+                                                  val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                                  val targetVol = (newVal * max).toInt()
+                                                  audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
+                                              },
+                                              valueRange = 0f..1f,
+                                              modifier = Modifier.weight(1f).height(20.dp),
+                                              colors = SliderDefaults.colors(
+                                                  thumbColor = Color(0xFF00E5FF),
+                                                  activeTrackColor = Color(0xFF00E5FF)
+                                              )
                                           )
+                                          Text("${(currentVolume * 100).toInt()}%", color = Color(0xFF00E5FF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                      }
+                                      // Telif ve Tasarım İmzası (Ses federinin bloğunda)
+                                      Text(
+                                          text = "Design by Yalçin Ruşitler - All rights reserved 2026 - www.rusitler.de",
+                                          color = Color.Gray,
+                                          fontSize = 8.sp,
+                                          modifier = Modifier.fillMaxWidth(),
+                                          textAlign = TextAlign.Center
                                       )
-                                      Text("${(currentVolume * 100).toInt()}%", color = Color(0xFF00E5FF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                   }
                               }
 
                               // ================= 2. BÖLÜM: APP KISAYOLLARI =================
                               Card(
-                                  modifier = Modifier.fillMaxWidth().height(52.dp),
+                                  modifier = Modifier.fillMaxWidth().height(52.dp).border(1.dp, borderColor, RoundedCornerShape(12.dp)),
                                   shape = RoundedCornerShape(12.dp),
                                   colors = CardDefaults.cardColors(containerColor = cardColor)
                               ) {
@@ -565,7 +579,7 @@ jobs:
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
                                       Card(
-                                          modifier = Modifier.weight(7.0f).fillMaxWidth().combinedClickable(
+                                          modifier = Modifier.weight(7.0f).fillMaxWidth().border(1.dp, borderColor, RoundedCornerShape(14.dp)).combinedClickable(
                                               onClick = { openApp("com.waze") },
                                               onLongClick = { launchWazePiP() }
                                           ),
@@ -631,7 +645,7 @@ jobs:
                                       }
 
                                       Card(
-                                          modifier = Modifier.weight(3.0f).fillMaxWidth(),
+                                          modifier = Modifier.weight(3.0f).fillMaxWidth().border(1.dp, borderColor, RoundedCornerShape(14.dp)),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(containerColor = cardColor)
                                       ) {
@@ -735,7 +749,7 @@ jobs:
                                               else -> Color(0xFF00E5FF)
                                           }
                                           Card(
-                                              modifier = Modifier.weight(1.3f).fillMaxHeight().clickable { maxSpeedInt = 0 },
+                                              modifier = Modifier.weight(1.3f).fillMaxHeight().border(1.dp, borderColor, RoundedCornerShape(14.dp)).clickable { maxSpeedInt = 0 },
                                               shape = RoundedCornerShape(14.dp),
                                               colors = CardDefaults.cardColors(containerColor = cardColor)
                                           ) {
@@ -752,7 +766,7 @@ jobs:
                                               }
                                           }
 
-                                          // Hız Sınırı Tabelası (Dinamik hız eşiklerine göre çalışır)
+                                          // Hız Sınırı Tabelası
                                           val dynamicLimit = when {
                                               currentSpeedInt > 120 -> 130
                                               currentSpeedInt > 100 -> 120
@@ -762,7 +776,7 @@ jobs:
                                               else -> 30
                                           }
                                           Card(
-                                              modifier = Modifier.weight(1.1f).fillMaxHeight(),
+                                              modifier = Modifier.weight(1.1f).fillMaxHeight().border(1.dp, borderColor, RoundedCornerShape(14.dp)),
                                               shape = RoundedCornerShape(14.dp),
                                               colors = CardDefaults.cardColors(containerColor = cardColor)
                                           ) {
@@ -800,7 +814,7 @@ jobs:
                                       }
 
                                       Card(
-                                          modifier = Modifier.fillMaxWidth().weight(2.0f),
+                                          modifier = Modifier.fillMaxWidth().weight(2.0f).border(1.dp, borderColor, RoundedCornerShape(14.dp)),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(containerColor = cardColor)
                                       ) {
@@ -832,9 +846,9 @@ jobs:
                                           }
                                       }
 
-                                      // 8. Bölüm: Kompas (Sol) ve Anlık Hava Durumu Widget'ı (Sağ)
+                                      // 8. Bölüm: Kompas ve Sağ Tarafında Anlık Hava Durumu
                                       Card(
-                                          modifier = Modifier.fillMaxWidth().weight(3.2f),
+                                          modifier = Modifier.fillMaxWidth().weight(3.2f).border(1.dp, borderColor, RoundedCornerShape(14.dp)),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(containerColor = cardColor)
                                       ) {
@@ -843,7 +857,6 @@ jobs:
                                               verticalAlignment = Alignment.CenterVertically,
                                               horizontalArrangement = Arrangement.SpaceBetween
                                           ) {
-                                              // Sol: Kompas ve Konum
                                               Row(
                                                   modifier = Modifier.weight(1.3f).fillMaxHeight(),
                                                   verticalAlignment = Alignment.CenterVertically,
@@ -929,7 +942,7 @@ jobs:
                                                   }
                                               }
 
-                                              // Sağ: Anlık Hava Durumu (Hava Tahmini / Radar Entegrasyonu)
+                                              // Pusulanın sağ tarafına entegre edilen Anlık Hava Durumu widget'ı
                                               Surface(
                                                   modifier = Modifier.weight(0.7f).fillMaxHeight(),
                                                   shape = RoundedCornerShape(10.dp),
@@ -962,9 +975,8 @@ jobs:
                                       modifier = Modifier.weight(2.0f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
-                                      // 9. Bölüm: CanBus Araç Bilgileri
                                       Card(
-                                          modifier = Modifier.weight(2.5f).fillMaxWidth(),
+                                          modifier = Modifier.weight(2.5f).fillMaxWidth().border(1.dp, borderColor, RoundedCornerShape(14.dp)),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(containerColor = cardColor)
                                       ) {
@@ -1015,7 +1027,6 @@ jobs:
                                           }
                                       }
 
-                                      // 10. Bölüm: Blitzer.de Yuvası
                                       Card(
                                           modifier = Modifier.weight(1.0f).fillMaxWidth()
                                               .border(1.dp, Color(0xFF4CAF50).copy(alpha = 0.3f), RoundedCornerShape(14.dp))
@@ -1026,9 +1037,8 @@ jobs:
                                           Box(modifier = Modifier.fillMaxSize()) {}
                                       }
 
-                                      // 11. Bölüm: Parlaklık ve Tema
                                       Card(
-                                          modifier = Modifier.weight(1.2f).fillMaxWidth(),
+                                          modifier = Modifier.weight(1.2f).fillMaxWidth().border(1.dp, borderColor, RoundedCornerShape(14.dp)),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(containerColor = cardColor)
                                       ) {
@@ -1066,47 +1076,3 @@ jobs:
                                                       onClick = { isDarkTheme = true },
                                                       modifier = Modifier.size(32.dp).border(width = if (isDarkTheme) 2.dp else 0.dp, color = Color(0xFF00E5FF), shape = CircleShape)
                                                   ) {
-                                                      Icon(Icons.Default.DarkMode, contentDescription = "Karanlık", tint = Color(0xFF90CAF9), modifier = Modifier.size(18.dp))
-                                                  }
-                                                  IconButton(
-                                                      onClick = { isDarkTheme = false },
-                                                      modifier = Modifier.size(32.dp).border(width = if (!isDarkTheme) 2.dp else 0.dp, color = Color(0xFF00E5FF), shape = CircleShape)
-                                                  ) {
-                                                      Icon(Icons.Default.LightMode, contentDescription = "Aydınlık", tint = Color(0xFFFFD54F), modifier = Modifier.size(18.dp))
-                                                  }
-                                              }
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-
-                          if (showAppDrawer) {
-                              val apps = remember { getInstalledApps() }
-                              Dialog(onDismissRequest = { showAppDrawer = false }) {
-                                  Card(
-                                      modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.88f),
-                                      shape = RoundedCornerShape(16.dp),
-                                      colors = CardDefaults.cardColors(containerColor = cardColor)
-                                  ) {
-                                      Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                                          Row(
-                                              modifier = Modifier.fillMaxWidth(),
-                                              horizontalArrangement = Arrangement.SpaceBetween,
-                                              verticalAlignment = Alignment.CenterVertically
-                                          ) {
-                                              Text("Tüm Uygulamalar", color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                                              IconButton(onClick = { showAppDrawer = false }) {
-                                                  Icon(Icons.Default.Close, contentDescription = "Kapat", tint = textColor)
-                                              }
-                                          }
-                                          Spacer(modifier = Modifier.height(12.dp))
-                                          LazyVerticalGrid(
-                                              columns = GridCells.Fixed(5),
-                                              verticalArrangement = Arrangement.spacedBy(12.dp),
-                                              horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                              modifier = Modifier.fillMaxSize()
-                                          ) {
-                                              items(apps) { app ->
-                                                  Card(
-                                                      modifier = Modifier.fillMaxWidth().height(96
