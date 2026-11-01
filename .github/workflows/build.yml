@@ -66,8 +66,8 @@ jobs:
                   applicationId = "com.fyt.carlauncher"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 10
-                  versionName = "1.9"
+                  versionCode = 11
+                  versionName = "1.9.1"
               }
               buildFeatures { compose = true }
               composeOptions { kotlinCompilerExtensionVersion = "1.5.10" }
@@ -357,6 +357,7 @@ jobs:
           import androidx.compose.ui.Modifier
           import androidx.compose.ui.draw.clip
           import androidx.compose.ui.draw.rotate
+          import androidx.compose.ui.graphics.graphicsLayer
           import androidx.compose.ui.geometry.Offset
           import androidx.compose.ui.graphics.Color
           import androidx.compose.ui.graphics.Path
@@ -503,7 +504,7 @@ jobs:
                               modifier = Modifier.fillMaxSize().padding(8.dp),
                               horizontalArrangement = Arrangement.spacedBy(8.dp)
                           ) {
-                              // 1. DOCK (Sol Menü - Ses Federi Eklendi)
+                              // 1. DOCK (Sol Menü - Dikey Ses Federi)
                               Card(
                                   modifier = Modifier.weight(1.0f).fillMaxHeight(),
                                   shape = RoundedCornerShape(14.dp),
@@ -532,7 +533,7 @@ jobs:
                                               },
                                               valueRange = 0f..1f,
                                               modifier = Modifier
-                                                  .graphicsAngle(rotationZ = 270f)
+                                                  .graphicsLayer(rotationZ = 270f)
                                                   .width(100.dp),
                                               colors = SliderDefaults.colors(
                                                   thumbColor = Color(0xFF00E5FF),
@@ -1188,7 +1189,7 @@ jobs:
                                                   ) {
                                                       Column(
                                                           modifier = Modifier.fillMaxSize().padding(6.dp),
-                                                          verticalArrangement = Arrangement.Center,
+                                                          verticalArrangement = Alignment.Center,
                                                           horizontalAlignment = Alignment.CenterHorizontally
                                                       ) {
                                                           if (item.icon != null) {
@@ -1333,7 +1334,7 @@ jobs:
                   for (pkg in candidates) {
                       val intent = packageManager.getLaunchIntentForPackage(pkg)
                       if (intent != null) {
-                      startActivity(intent)
+                          startActivity(intent)
                           return
                       }
                   }
@@ -1360,6 +1361,7 @@ jobs:
                                   ?: meta.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
                               val artist = meta.getString(MediaMetadata.METADATA_KEY_ARTIST)
                                   ?: meta.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+                                  ?: meta.getString(MediaMetadata.METADATA_KEY_AUTHOR)
                               val art = meta.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
                                   ?: meta.getBitmap(MediaMetadata.METADATA_KEY_ART)
                               if (!title.isNullOrBlank()) {
@@ -1477,7 +1479,7 @@ jobs:
 
               private fun openApp(packageName: String) {
                   val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-                  if (launchIntent != null) {
+                  if (launchIntent !=0) {
                       startActivity(launchIntent)
                   } else {
                       Toast.makeText(this, "Uygulama bulunamadı: $packageName", Toast.LENGTH_SHORT).show()
