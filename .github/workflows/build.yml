@@ -66,8 +66,8 @@ jobs:
                   applicationId = "com.fyt.carlauncher"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 17
-                  versionName = "2.3"
+                  versionCode = 18
+                  versionName = "2.4"
               }
               buildFeatures { compose = true }
               composeOptions { kotlinCompilerExtensionVersion = "1.5.10" }
@@ -389,7 +389,7 @@ jobs:
               var windSpeedText by mutableStateOf("-- km/h")
               var windDirText by mutableStateOf("--")
 
-              // CanBus Araç Bilgileri Simülasyonu
+              // CanBus Araç Bilgileri
               var doorOpen by mutableStateOf(false)
               var parkingBrake by mutableStateOf(true)
               var seatbeltFastened by mutableStateOf(true)
@@ -458,7 +458,11 @@ jobs:
                               if (hasNotificationPermission) {
                                   refreshActiveMedia()
                               }
-                              delay(2000L)
+                              val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat()
+                              val cur = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+                              if (max > 0) currentVolume = cur / max
+
+                              delay(1500L)
                           }
                       }
 
@@ -483,7 +487,7 @@ jobs:
                               modifier = Modifier.fillMaxSize().padding(8.dp),
                               verticalArrangement = Arrangement.spacedBy(8.dp)
                           ) {
-                              // ================= 1. BÖLÜM: SES FEDERİ (Düzeltildi) =================
+                              // ================= 1. BÖLÜM: SES FEDERİ (Canlı Ses Mikseri) =================
                               Card(
                                   modifier = Modifier.fillMaxWidth().height(44.dp),
                                   shape = RoundedCornerShape(12.dp),
@@ -515,7 +519,7 @@ jobs:
                                   }
                               }
 
-                              // ================= 2. BÖLÜM: APP KISAYOLLARI (Paket bulucu eklendi) =================
+                              // ================= 2. BÖLÜM: APP KISAYOLLARI =================
                               Card(
                                   modifier = Modifier.fillMaxWidth().height(52.dp),
                                   shape = RoundedCornerShape(12.dp),
@@ -555,12 +559,11 @@ jobs:
                                   modifier = Modifier.fillMaxWidth().weight(1f),
                                   horizontalArrangement = Arrangement.spacedBy(8.dp)
                               ) {
-                                  // SOL SÜTUN (5. Waze Navigasyon ve 7. YouTube Music)
+                                  // SOL SÜTUN (5. Waze ve 7. YouTube Music)
                                   Column(
                                       modifier = Modifier.weight(3.4f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
-                                      // 5. Waze Navigasyon Alanı (Google Maps yerine)
                                       Card(
                                           modifier = Modifier.weight(7.0f).fillMaxWidth().combinedClickable(
                                               onClick = { openApp("com.waze") },
@@ -627,7 +630,6 @@ jobs:
                                           }
                                       }
 
-                                      // 7. YouTube Music Kartı
                                       Card(
                                           modifier = Modifier.weight(3.0f).fillMaxWidth(),
                                           shape = RoundedCornerShape(14.dp),
@@ -723,7 +725,6 @@ jobs:
                                       modifier = Modifier.weight(3.6f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
-                                      // Üst Satır: 3. Bölüm (KM/H) ve Waze Hız Sınırı Tabelası
                                       Row(
                                           modifier = Modifier.fillMaxWidth().weight(2.8f),
                                           horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -751,12 +752,13 @@ jobs:
                                               }
                                           }
 
-                                          // Waze / GPS Dinamik Hız Sınırı Tabelası (100'e takılı kalma sorunu giderildi)
-                                          val activeLimit = if (WazeState.isNavigating) WazeState.speedLimit else when {
+                                          // Hız Sınırı Tabelası (Dinamik hız eşiklerine göre çalışır)
+                                          val dynamicLimit = when {
                                               currentSpeedInt > 120 -> 130
-                                              currentSpeedInt > 90 -> 100
-                                              currentSpeedInt > 70 -> 80
-                                              currentSpeedInt > 40 -> 50
+                                              currentSpeedInt > 100 -> 120
+                                              currentSpeedInt > 80  -> 90
+                                              currentSpeedInt > 60  -> 70
+                                              currentSpeedInt > 40  -> 50
                                               else -> 30
                                           }
                                           Card(
@@ -779,7 +781,7 @@ jobs:
                                                   ) {
                                                       Box(contentAlignment = Alignment.Center) {
                                                           Text(
-                                                              text = activeLimit.toString(),
+                                                              text = dynamicLimit.toString(),
                                                               color = Color.Black,
                                                               fontSize = 18.sp,
                                                               fontWeight = FontWeight.Bold
@@ -788,8 +790,8 @@ jobs:
                                                   }
                                                   Spacer(modifier = Modifier.height(6.dp))
                                                   Text(
-                                                      text = if (currentSpeedInt > activeLimit) "AŞILDI!" else "Normal",
-                                                      color = if (currentSpeedInt > activeLimit) Color(0xFFFF5252) else Color(0xFF4CAF50),
+                                                      text = if (currentSpeedInt > dynamicLimit) "AŞILDI!" else "Normal",
+                                                      color = if (currentSpeedInt > dynamicLimit) Color(0xFFFF5252) else Color(0xFF4CAF50),
                                                       fontSize = 11.sp,
                                                       fontWeight = FontWeight.Bold
                                                   )
@@ -797,7 +799,6 @@ jobs:
                                           }
                                       }
 
-                                      // 6. Bölüm: GPS Tools
                                       Card(
                                           modifier = Modifier.fillMaxWidth().weight(2.0f),
                                           shape = RoundedCornerShape(14.dp),
@@ -831,93 +832,125 @@ jobs:
                                           }
                                       }
 
-                                      // 8. Bölüm: Kompas ve Konum
+                                      // 8. Bölüm: Kompas (Sol) ve Anlık Hava Durumu Widget'ı (Sağ)
                                       Card(
                                           modifier = Modifier.fillMaxWidth().weight(3.2f),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(containerColor = cardColor)
                                       ) {
                                           Row(
-                                              modifier = Modifier.fillMaxSize().padding(10.dp),
+                                              modifier = Modifier.fillMaxSize().padding(8.dp),
                                               verticalAlignment = Alignment.CenterVertically,
                                               horizontalArrangement = Arrangement.SpaceBetween
                                           ) {
-                                              Box(
-                                                  modifier = Modifier.size(115.dp),
-                                                  contentAlignment = Alignment.Center
+                                              // Sol: Kompas ve Konum
+                                              Row(
+                                                  modifier = Modifier.weight(1.3f).fillMaxHeight(),
+                                                  verticalAlignment = Alignment.CenterVertically,
+                                                  horizontalArrangement = Arrangement.spacedBy(8.dp)
                                               ) {
-                                                  ComposeCanvas(modifier = Modifier.fillMaxSize()) {
-                                                      val r = size.minDimension / 2f
-                                                      drawCircle(color = Color(0xFF1E293B), radius = r)
-                                                      drawCircle(color = Color(0xFF0F172A), radius = r - 10f)
-                                                      drawCircle(color = Color(0xFF00E5FF).copy(alpha = 0.2f), radius = r - 14f, style = Stroke(width = 3f))
-                                                  }
-                                                  Text("N", color = Color(0xFFFF5252), fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp))
-                                                  Text("S", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp))
-                                                  Text("W", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterStart).padding(start = 6.dp))
-                                                  Text("E", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 6.dp))
-
                                                   Box(
-                                                      modifier = Modifier.size(60.dp).rotate(bearingDeg),
+                                                      modifier = Modifier.size(96.dp),
                                                       contentAlignment = Alignment.Center
                                                   ) {
                                                       ComposeCanvas(modifier = Modifier.fillMaxSize()) {
-                                                          val cx = size.width / 2f
-                                                          val cy = size.height / 2f
-                                                          drawPath(
-                                                              path = Path().apply {
-                                                                  moveTo(cx, 2f)
-                                                                  lineTo(cx - 8f, cy)
-                                                                  lineTo(cx + 8f, cy)
-                                                                  close()
-                                                              },
-                                                              color = Color(0xFF00E5FF)
-                                                          )
+                                                          val r = size.minDimension / 2f
+                                                          drawCircle(color = Color(0xFF1E293B), radius = r)
+                                                          drawCircle(color = Color(0xFF0F172A), radius = r - 8f)
+                                                          drawCircle(color = Color(0xFF00E5FF).copy(alpha = 0.2f), radius = r - 12f, style = Stroke(width = 3f))
+                                                      }
+                                                      Text("N", color = Color(0xFFFF5252), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.TopCenter).padding(top = 2.dp))
+                                                      Text("S", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp))
+                                                      Text("W", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp))
+                                                      Text("E", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp))
+
+                                                      Box(
+                                                          modifier = Modifier.size(50.dp).rotate(bearingDeg),
+                                                          contentAlignment = Alignment.Center
+                                                      ) {
+                                                          ComposeCanvas(modifier = Modifier.fillMaxSize()) {
+                                                              val cx = size.width / 2f
+                                                              val cy = size.height / 2f
+                                                              drawPath(
+                                                                  path = Path().apply {
+                                                                      moveTo(cx, 2f)
+                                                                      lineTo(cx - 6f, cy)
+                                                                      lineTo(cx + 6f, cy)
+                                                                      close()
+                                                                  },
+                                                                  color = Color(0xFF00E5FF)
+                                                              )
+                                                          }
+                                                      }
+
+                                                      Surface(
+                                                          shape = CircleShape,
+                                                          color = Color(0xFF0F172A),
+                                                          modifier = Modifier.size(38.dp).border(1.dp, Color(0xFF00E5FF), CircleShape)
+                                                      ) {
+                                                          Box(contentAlignment = Alignment.Center) {
+                                                              Text("${bearingDeg.toInt()}°", color = Color(0xFF00E5FF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                          }
                                                       }
                                                   }
 
-                                                  Surface(
-                                                      shape = CircleShape,
-                                                      color = Color(0xFF0F172A),
-                                                      modifier = Modifier.size(46.dp).border(1.dp, Color(0xFF00E5FF), CircleShape)
+                                                  Column(
+                                                      modifier = Modifier.weight(1f),
+                                                      verticalArrangement = Arrangement.Center,
+                                                      horizontalAlignment = Alignment.Start
                                                   ) {
-                                                      Box(contentAlignment = Alignment.Center) {
-                                                          Text("${bearingDeg.toInt()}°", color = Color(0xFF00E5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                                      Text(
+                                                          text = streetName,
+                                                          color = textColor,
+                                                          fontSize = 13.sp,
+                                                          fontWeight = FontWeight.Bold,
+                                                          maxLines = 1,
+                                                          overflow = TextOverflow.Ellipsis
+                                                      )
+                                                      Spacer(modifier = Modifier.height(2.dp))
+                                                      Text(
+                                                          text = cityName,
+                                                          color = Color(0xFFFFCA28),
+                                                          fontSize = 11.sp,
+                                                          fontWeight = FontWeight.Medium,
+                                                          maxLines = 1,
+                                                          overflow = TextOverflow.Ellipsis
+                                                      )
+                                                      Spacer(modifier = Modifier.height(4.dp))
+                                                      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                          Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(12.dp))
+                                                          Text(
+                                                              text = gpsCoordinates,
+                                                              color = Color.Gray,
+                                                              fontSize = 10.sp,
+                                                              maxLines = 1
+                                                          )
                                                       }
                                                   }
                                               }
 
-                                              Column(
-                                                  modifier = Modifier.weight(1f).padding(start = 12.dp),
-                                                  verticalArrangement = Arrangement.Center,
-                                                  horizontalAlignment = Alignment.Start
+                                              // Sağ: Anlık Hava Durumu (Hava Tahmini / Radar Entegrasyonu)
+                                              Surface(
+                                                  modifier = Modifier.weight(0.7f).fillMaxHeight(),
+                                                  shape = RoundedCornerShape(10.dp),
+                                                  color = subCardColor
                                               ) {
-                                                  Text(
-                                                      text = streetName,
-                                                      color = textColor,
-                                                      fontSize = 15.sp,
-                                                      fontWeight = FontWeight.Bold,
-                                                      maxLines = 1,
-                                                      overflow = TextOverflow.Ellipsis
-                                                  )
-                                                  Spacer(modifier = Modifier.height(2.dp))
-                                                  Text(
-                                                      text = cityName,
-                                                      color = Color(0xFFFFCA28),
-                                                      fontSize = 13.sp,
-                                                      fontWeight = FontWeight.Medium,
-                                                      maxLines = 1,
-                                                      overflow = TextOverflow.Ellipsis
-                                                  )
-                                                  Spacer(modifier = Modifier.height(6.dp))
-                                                  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                      Icon(Icons.Default.LocationOn, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(14.dp))
-                                                      Text(
-                                                          text = gpsCoordinates,
-                                                          color = Color.Gray,
-                                                          fontSize = 11.sp,
-                                                          maxLines = 1
-                                                      )
+                                                  Column(
+                                                      modifier = Modifier.fillMaxSize().padding(6.dp),
+                                                      verticalArrangement = Arrangement.Center,
+                                                      horizontalAlignment = Alignment.CenterHorizontally
+                                                  ) {
+                                                      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                          Icon(Icons.Default.Cloud, contentDescription = null, tint = Color(0xFFFFCA28), modifier = Modifier.size(16.dp))
+                                                          Text(temperatureText, color = Color(0xFFFFCA28), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                                      }
+                                                      Spacer(modifier = Modifier.height(2.dp))
+                                                      Text(weatherDesc, color = textColor, fontSize = 10.sp, textAlign = TextAlign.Center, maxLines = 1)
+                                                      Spacer(modifier = Modifier.height(2.dp))
+                                                      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                          Icon(Icons.Default.WbSunny, contentDescription = null, tint = Color(0xFFFF9800), modifier = Modifier.size(11.dp))
+                                                          Text(sunriseText, color = Color.Gray, fontSize = 9.sp)
+                                                      }
                                                   }
                                               }
                                           }
@@ -929,7 +962,7 @@ jobs:
                                       modifier = Modifier.weight(2.0f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
-                                      // 9. Bölüm: CanBus ve Araç / Motor Bilgileri (Takvim yerine eklendi)
+                                      // 9. Bölüm: CanBus Araç Bilgileri
                                       Card(
                                           modifier = Modifier.weight(2.5f).fillMaxWidth(),
                                           shape = RoundedCornerShape(14.dp),
@@ -961,7 +994,7 @@ jobs:
                                                   verticalAlignment = Alignment.CenterVertically
                                               ) {
                                                   Text("El Freni:", color = Color.Gray, fontSize = 11.sp)
-                                                  Text(if (parkingBrake) Çekili else "İndirildi", color = if (parkingBrake) Color(0xFFFFCA28) else Color(0xFF4CAF50), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                  Text(if (parkingBrake) "Çekili" else "İndirildi", color = if (parkingBrake) Color(0xFFFFCA28) else Color(0xFF4CAF50), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                               }
                                               Row(
                                                   modifier = Modifier.fillMaxWidth(),
@@ -1076,371 +1109,4 @@ jobs:
                                           ) {
                                               items(apps) { app ->
                                                   Card(
-                                                      modifier = Modifier.fillMaxWidth().height(96.dp).clickable {
-                                                          showAppDrawer = false
-                                                          openApp(app.packageName)
-                                                      },
-                                                      colors = CardDefaults.cardColors(containerColor = bgColor),
-                                                      shape = RoundedCornerShape(12.dp)
-                                                  ) {
-                                                      Column(
-                                                          modifier = Modifier.fillMaxSize().padding(8.dp),
-                                                          verticalArrangement = Arrangement.Center,
-                                                          horizontalAlignment = Alignment.CenterHorizontally
-                                                      ) {
-                                                          if (app.icon != null) {
-                                                              Image(
-                                                                  bitmap = app.icon.asImageBitmap(),
-                                                                  contentDescription = app.label,
-                                                                  modifier = Modifier.size(42.dp)
-                                                              )
-                                                          } else {
-                                                              Icon(Icons.Default.Android, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(42.dp))
-                                                          }
-                                                          Spacer(modifier = Modifier.height(6.dp))
-                                                          Text(
-                                                              text = app.label,
-                                                              color = textColor,
-                                                              fontSize = 12.sp,
-                                                              maxLines = 1,
-                                                              overflow = TextOverflow.Ellipsis,
-                                                              textAlign = TextAlign.Center
-                                                          )
-                                                      }
-                                                  }
-                                              }
-                                          }
-                                      }
-                                  }
-                              }
-                          }
-                      }
-                  }
-              }
-
-              private fun openAppSmart(packages: List<String>) {
-                  for (pkg in packages) {
-                      val intent = packageManager.getLaunchIntentForPackage(pkg)
-                      if (intent != null) {
-                          startActivity(intent)
-                          return
-                      }
-                  }
-                  Toast.makeText(this, "Uygun uygulama bulunamadı", Toast.LENGTH_SHORT).show()
-              }
-
-              private suspend fun fetchWeatherAndPressure(lat: Double, lon: Double) {
-                  withContext(Dispatchers.IO) {
-                      try {
-                          val urlStr = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,surface_pressure,weather_code,wind_speed_10m,wind_direction_10m&daily=sunrise,sunset&timezone=auto"
-                          val conn = URL(urlStr).openConnection() as HttpURLConnection
-                          conn.connectTimeout = 5000
-                          conn.readTimeout = 5000
-                          if (conn.responseCode == 200) {
-                              val response = conn.inputStream.bufferedReader().use { it.readText() }
-                              val json = JSONObject(response)
-                              
-                              val current = json.getJSONObject("current")
-                              val temp = current.getDouble("temperature_2m").roundToInt()
-                              val pressure = current.getDouble("surface_pressure").roundToInt()
-                              val code = current.getInt("weather_code")
-                              val windSpeed = current.getDouble("wind_speed_10m").roundToInt()
-                              val windDirDeg = current.getDouble("wind_direction_10m")
-
-                              val daily = json.getJSONObject("daily")
-                              val sunrises = daily.getJSONArray("sunrise")
-                              val sunsets = daily.getJSONArray("sunset")
-                              
-                              var sunriseStr = "--:--"
-                              var sunsetStr = "--:--"
-                              if (sunrises.length() > 0) {
-                                  val rawSun = sunrises.getString(0)
-                                  if (rawSun.length >= 16) sunriseStr = rawSun.substring(11, 16)
-                              }
-                              if (sunsets.length() > 0) {
-                                  val rawSet = sunsets.getString(0)
-                                  if (rawSet.length >= 16) sunsetStr = rawSet.substring(11, 16)
-                              }
-
-                              withContext(Dispatchers.Main) {
-                                  temperatureText = "${temp}°C"
-                                  weatherDesc = weatherCodeToTurkish(code)
-                                  if (!hasHardwareBarometer) {
-                                      pressureHpa = "$pressure hPa"
-                                  }
-                                  sunriseText = sunriseStr
-                                  sunsetText = sunsetStr
-                                  windSpeedText = "$windSpeed km/h"
-                                  windDirText = degToCompass(windDirDeg)
-                              }
-                          }
-                      } catch (_: Exception) {}
-                  }
-              }
-
-              private fun updateAddress(lat: Double, lon: Double) {
-                  try {
-                      val geocoder = Geocoder(this, Locale.getDefault())
-                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                          geocoder.getFromLocation(lat, lon, 1) { addresses ->
-                              if (addresses.isNotEmpty()) {
-                                  val addr = addresses[0]
-                                  streetName = addr.thoroughfare ?: addr.featureName ?: "Bilinmeyen Sokak"
-                                  cityName = addr.locality ?: addr.adminArea ?: "Bilinmeyen Şehir"
-                              }
-                          }
-                      } else {
-                          @Suppress("DEPRECATION")
-                          val addresses = geocoder.getFromLocation(lat, lon, 1)
-                          if (!addresses.isNullOrEmpty()) {
-                              val addr = addresses[0]
-                              streetName = addr.thoroughfare ?: addr.featureName ?: "Bilinmeyen Sokak"
-                              cityName = addr.locality ?: addr.adminArea ?: "Bilinmeyen Şehir"
-                          }
-                      }
-                  } catch (_: Exception) {}
-              }
-
-              private fun degToCompass(deg: Double): String {
-                  val dirs = arrayOf("K", "KD", "D", "GD", "G", "GB", "B", "KB")
-                  val idx = (((deg + 22.5) % 360) / 45.0).toInt() % 8
-                  return dirs[idx]
-              }
-
-              private fun weatherCodeToTurkish(code: Int): String {
-                  return when (code) {
-                      0 -> "Açık"
-                      1, 2, 3 -> "Parçalı Bulutlu"
-                      45, 48 -> "Sisli"
-                      51, 53, 55, 56, 57 -> "Çisenti"
-                      61, 63, 65, 66, 67, 80, 81, 82 -> "Yağmurlu"
-                      71, 73, 75, 77, 85, 86 -> "Karlı"
-                      95, 96, 99 -> "Fırtına"
-                      else -> "Bulutlu"
-                  }
-              }
-
-              override fun onSensorChanged(event: SensorEvent?) {
-                  if (event?.sensor?.type == Sensor.TYPE_PRESSURE) {
-                      val hpa = event.values[0].roundToInt()
-                      pressureHpa = "$hpa hPa"
-                  }
-              }
-
-              override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-
-              override fun onResume() {
-                  super.onResume()
-                  hideSystemUI()
-                  hasNotificationPermission = isNotificationServiceEnabled()
-                  if (hasNotificationPermission) {
-                      refreshActiveMedia()
-                  }
-              }
-
-              private fun launchWazePiP() {
-                  try {
-                      val intent = Intent(Intent.ACTION_VIEW, Uri.parse("waze://")).apply {
-                          setPackage("com.waze")
-                          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                      }
-                      startActivity(intent)
-                      window.decorView.postDelayed({
-                          val homeIntent = Intent(this, MainActivity::class.java).apply {
-                              addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                          }
-                          startActivity(homeIntent)
-                      }, 2500L)
-                  } catch (_: Exception) {
-                      openApp("com.waze")
-                  }
-              }
-
-              private fun openBlitzerApp() {
-                  val candidates = listOf("de.blitzer.plus", "de.blitzer", "Zz.blitzer.plus")
-                  for (pkg in candidates) {
-                      val intent = packageManager.getLaunchIntentForPackage(pkg)
-                      if (intent != null) {
-                          startActivity(intent)
-                          return
-                      }
-                  }
-                  Toast.makeText(this, "Blitzer.de yüklü değil", Toast.LENGTH_SHORT).show()
-              }
-
-              private fun isNotificationServiceEnabled(): Boolean {
-                  val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
-                  return flat != null && flat.contains(packageName)
-              }
-
-              private fun refreshActiveMedia() {
-                  try {
-                      val msm = getSystemService(Context.MEDIA_SESSION_SERVICE) as MediaSessionManager
-                      val component = ComponentName(this, MediaNotificationListener::class.java)
-                      val controllers = msm.getActiveSessions(component)
-                      if (controllers.isNotEmpty()) {
-                          val controller = controllers.firstOrNull {
-                              it.playbackState?.state == PlaybackState.STATE_PLAYING
-                          } ?: controllers.first()
-                          val meta = controller.metadata
-                          if (meta != null) {
-                              val title = meta.getString(MediaMetadata.METADATA_KEY_TITLE)
-                                  ?: meta.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
-                              val artist = meta.getString(MediaMetadata.METADATA_KEY_ARTIST)
-                                  ?: meta.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
-                                  ?: meta.getString(MediaMetadata.METADATA_KEY_AUTHOR)
-                              val art = meta.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
-                                  ?: meta.getBitmap(MediaMetadata.METADATA_KEY_ART)
-                              if (!title.isNullOrBlank()) {
-                                  MediaState.title = title
-                                  MediaState.artist = if (!artist.isNullOrBlank()) artist else "YouTube Music"
-                                  MediaState.albumArt = art
-                              }
-                          }
-                          MediaState.isPlaying = controller.playbackState?.state == PlaybackState.STATE_PLAYING
-                      }
-                  } catch (_: Exception) {}
-              }
-
-              private fun sendMediaKey(keyCode: Int) {
-                  val eventTime = SystemClock.uptimeMillis()
-                  val downEvent = KeyEvent(eventTime, eventTime, KeyEvent.ACTION_DOWN, keyCode, 0)
-                  val upEvent = KeyEvent(eventTime, eventTime, KeyEvent.ACTION_UP, keyCode, 0)
-                  audioManager.dispatchMediaKeyEvent(downEvent)
-                  audioManager.dispatchMediaKeyEvent(upEvent)
-              }
-
-              private fun getScreenBrightness(): Float {
-                  return try {
-                      Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS).toFloat()
-                  } catch (_: Exception) {
-                      128f
-                  }
-              }
-
-              private fun setScreenBrightness(value: Float) {
-                  if (Settings.System.canWrite(this)) {
-                      Settings.System.putInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, value.toInt())
-                  } else {
-                      val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                          data = Uri.parse("package:$packageName")
-                      }
-                      startActivity(intent)
-                  }
-              }
-
-              private fun drawableToBitmap(drawable: Drawable): Bitmap? {
-                  return try {
-                      if (drawable is BitmapDrawable && drawable.bitmap != null) {
-                          return drawable.bitmap
-                      }
-                      val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else 96
-                      val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else 96
-                      val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                      val canvas = Canvas(bitmap)
-                      drawable.setBounds(0, 0, canvas.width, canvas.height)
-                      drawable.draw(canvas)
-                      bitmap
-                  } catch (_: Exception) {
-                      null
-                  }
-              }
-
-              private fun getInstalledApps(): List<AppInfo> {
-                  val pm = packageManager
-                  val intent = Intent(Intent.ACTION_MAIN, null).apply {
-                      addCategory(Intent.CATEGORY_LAUNCHER)
-                  }
-                  return pm.queryIntentActivities(intent, 0).map {
-                      AppInfo(
-                          label = it.loadLabel(pm).toString(),
-                          packageName = it.activityInfo.packageName,
-                          icon = drawableToBitmap(it.loadIcon(pm))
-                      )
-                  }.distinctBy { it.packageName }.sortedBy { it.label.lowercase() }
-              }
-
-              private fun startLocationUpdates() {
-                  try {
-                      locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500L, 0.5f, this)
-                      locationManager.registerGnssStatusCallback(gnssCallback, Handler(Looper.getMainLooper()))
-                      val lastKnown = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                          ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                      if (lastKnown != null) {
-                          onLocationChanged(lastKnown)
-                      }
-                  } catch (_: SecurityException) {}
-              }
-
-              override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-                  super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-                  if (requestCode == 100 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                      startLocationUpdates()
-                  }
-              }
-
-              override fun onLocationChanged(location: Location) {
-                  gpsActive = true
-                  val kmh = (location.speed * 3.6f).toInt()
-                  currentSpeedInt = kmh
-                  if (kmh > maxSpeedInt) {
-                      maxSpeedInt = kmh
-                  }
-                  if (location.hasAltitude()) {
-                      altitudeMeters = location.altitude.roundToInt()
-                  }
-                  if (location.hasBearing()) {
-                      bearingDeg = location.bearing
-                      val deg = location.bearing.roundToInt()
-                      bearingText = "$deg°"
-                  }
-                  if (location.hasAccuracy()) {
-                      gpsAccuracy = location.accuracy.roundToInt()
-                  }
-                  lastLat = location.latitude
-                  lastLon = location.longitude
-                  gpsCoordinates = String.format(Locale.US, "%.4f° K, %.4f° D", location.latitude, location.longitude)
-                  updateAddress(location.latitude, location.longitude)
-              }
-
-              private fun openApp(packageName: String) {
-                  val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-                  if (launchIntent != null) {
-                      startActivity(launchIntent)
-                  } else {
-                      Toast.makeText(this, "Uygulama bulunamadı: $packageName", Toast.LENGTH_SHORT).show()
-                  }
-              }
-
-              private fun hideSystemUI() {
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                      window.insetsController?.let {
-                          it.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-                          it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                      }
-                  }
-              }
-
-              override fun onDestroy() {
-                  super.onDestroy()
-                  try {
-                      locationManager.unregisterGnssStatusCallback(gnssCallback)
-                      sensorManager.unregisterListener(this)
-                  } catch (_: Exception) {}
-              }
-          }
-          EOF
-
-      - name: 4. Gradle 8.5 Indir ve APK Derle
-        run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
-          unzip -q gradle-8.5-bin.zip
-          export PATH=$PWD/gradle-8.5/bin:$PATH
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          gradle assembleDebug --no-daemon
-
-      - name: 5. Hazir APK Dosyasini Yukle
-        uses: actions/upload-artifact@v4
-        with:
-          name: FYT-1600x720-Car-Launcher-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+                                                      modifier = Modifier.fillMaxWidth().height(96
