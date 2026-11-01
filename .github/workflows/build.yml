@@ -66,8 +66,8 @@ jobs:
                   applicationId = "com.fyt.carlauncher"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 14
-                  versionName = "2.0.1"
+                  versionCode = 15
+                  versionName = "2.1"
               }
               buildFeatures { compose = true }
               composeOptions { kotlinCompilerExtensionVersion = "1.5.10" }
@@ -94,8 +94,14 @@ jobs:
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
               <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
               <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+              <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
               <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+              <uses-permission android:name="android.permission.BLUETOOTH" />
+              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+              <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+              <uses-permission android:name="android.permission.CALL_PHONE" />
               <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
               <application
@@ -414,7 +420,7 @@ jobs:
               var lastLon by mutableStateOf(8.01)
 
               var hasNotificationPermission by mutableStateOf(false)
-              var currentVolume by mutableStateOf(0f)
+              var currentVolume by mutableStateOf(0.5f)
 
               private val gnssCallback = object : GnssStatus.Callback() {
                   override fun onSatelliteStatusChanged(status: GnssStatus) {
@@ -439,7 +445,7 @@ jobs:
 
                   val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat()
                   val curVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
-                  currentVolume = if (maxVol > 0) curVol / maxVol else 0f
+                  currentVolume = if (maxVol > 0) curVol / maxVol else 0.5f
 
                   val pressureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE)
                   if (pressureSensor != null) {
@@ -448,7 +454,7 @@ jobs:
                   }
 
                   if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                      ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 100)
+                      ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 100)
                   } else {
                       startLocationUpdates()
                   }
@@ -471,11 +477,7 @@ jobs:
                               if (hasNotificationPermission) {
                                   refreshActiveMedia()
                               }
-                              val cur = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
-                              val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat()
-                              if (max > 0) currentVolume = cur / max
-
-                              delay(1500L)
+                              delay(2000L)
                           }
                       }
 
@@ -500,25 +502,26 @@ jobs:
                               modifier = Modifier.fillMaxSize().padding(8.dp),
                               verticalArrangement = Arrangement.spacedBy(8.dp)
                           ) {
-                              // ================= 1. BÖLÜM: SES FEDERİ =================
+                              // ================= 1. BÖLÜM: SES FEDERİ (Ses Mikseri Gibi) =================
                               Card(
-                                  modifier = Modifier.fillMaxWidth().height(48.dp),
+                                  modifier = Modifier.fillMaxWidth().height(44.dp),
                                   shape = RoundedCornerShape(12.dp),
                                   colors = CardDefaults.cardColors(containerColor = cardColor)
                               ) {
                                   Row(
-                                      modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                      modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
                                       verticalAlignment = Alignment.CenterVertically,
-                                      horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                      horizontalArrangement = Arrangement.spacedBy(10.dp)
                                   ) {
-                                      Icon(Icons.Default.VolumeUp, contentDescription = "Ses", tint = Color(0xFF00E5FF), modifier = Modifier.size(24.dp))
-                                      Text("SES", color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                      Icon(Icons.Default.VolumeUp, contentDescription = "Ses", tint = Color(0xFF00E5FF), modifier = Modifier.size(22.dp))
+                                      Text("SES", color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                       Slider(
                                           value = currentVolume,
-                                          onValueChange = {
-                                              currentVolume = it
+                                          onValueChange = { newVal ->
+                                              currentVolume = newVal
                                               val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                              audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (it * max).toInt(), 0)
+                                              val targetVol = (newVal * max).toInt()
+                                              audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
                                           },
                                           valueRange = 0f..1f,
                                           modifier = Modifier.weight(1f),
@@ -527,41 +530,48 @@ jobs:
                                               activeTrackColor = Color(0xFF00E5FF)
                                           )
                                       )
-                                      Text("${(currentVolume * 100).toInt()}%", color = Color(0xFF00E5FF), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                      Text("${(currentVolume * 100).toInt()}%", color = Color(0xFF00E5FF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                   }
                               }
 
                               // ================= 2. BÖLÜM: APP KISAYOLLARI =================
                               Card(
-                                  modifier = Modifier.fillMaxWidth().height(56.dp),
+                                  modifier = Modifier.fillMaxWidth().height(52.dp),
                                   shape = RoundedCornerShape(12.dp),
                                   colors = CardDefaults.cardColors(containerColor = cardColor)
                               ) {
                                   Row(
-                                      modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
+                                      modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
                                       verticalAlignment = Alignment.CenterVertically,
                                       horizontalArrangement = Arrangement.SpaceAround
                                   ) {
-                                      IconButton(onClick = { openApp("com.google.android.projection.gearhead") }) {
-                                          Icon(Icons.Default.DirectionsCar, contentDescription = "Android Auto", tint = Color(0xFF4CAF50), modifier = Modifier.size(28.dp))
+                                      // Android Auto (ZLink / Gearhead alternatifi)
+                                      IconButton(onClick = { openAppSmart(listOf("com.google.android.projection.gearhead", "cn.caas.zlink", "com.zlink.carplay", "com.syu.carplay")) }) {
+                                          Icon(Icons.Default.DirectionsCar, contentDescription = "Android Auto", tint = Color(0xFF4CAF50), modifier = Modifier.size(26.dp))
                                       }
-                                      IconButton(onClick = { openApp("com.android.settings") }) {
-                                          Icon(Icons.Default.Bluetooth, contentDescription = "Bluetooth", tint = Color(0xFF29B6F6), modifier = Modifier.size(28.dp))
+                                      // Bluetooth
+                                      IconButton(onClick = { openAppSmart(listOf("com.syu.bt", "com.android.bluetooth", "com.autochips.bluetooth", "com.ts.bt")) }) {
+                                          Icon(Icons.Default.Bluetooth, contentDescription = "Bluetooth", tint = Color(0xFF29B6F6), modifier = Modifier.size(26.dp))
                                       }
-                                      IconButton(onClick = { openApp("com.android.dialer") }) {
-                                          Icon(Icons.Default.Phone, contentDescription = "Telefon", tint = Color(0xFF66BB6A), modifier = Modifier.size(28.dp))
+                                      // Telefon
+                                      IconButton(onClick = { openAppSmart(listOf("com.android.dialer", "com.syu.bt", "com.android.contacts")) }) {
+                                          Icon(Icons.Default.Phone, contentDescription = "Telefon", tint = Color(0xFF66BB6A), modifier = Modifier.size(26.dp))
                                       }
+                                      // Ayarlar
                                       IconButton(onClick = { startActivity(Intent(Settings.ACTION_SETTINGS)) }) {
-                                          Icon(Icons.Default.Settings, contentDescription = "Ayarlar", tint = Color.Gray, modifier = Modifier.size(28.dp))
+                                          Icon(Icons.Default.Settings, contentDescription = "Ayarlar", tint = Color.Gray, modifier = Modifier.size(26.dp))
                                       }
+                                      // Home / Ana Ekran
                                       IconButton(onClick = { showAppDrawer = true }) {
-                                          Icon(Icons.Default.Home, contentDescription = "Home", tint = Color(0xFFFFCA28), modifier = Modifier.size(28.dp))
+                                          Icon(Icons.Default.Home, contentDescription = "Home", tint = Color(0xFFFFCA28), modifier = Modifier.size(26.dp))
                                       }
+                                      // Boş Slot 1 (Uygulama Çekmecesi)
                                       IconButton(onClick = { showAppDrawer = true }) {
-                                          Icon(Icons.Default.Apps, contentDescription = "Slot 1", tint = textColor, modifier = Modifier.size(28.dp))
+                                          Icon(Icons.Default.Apps, contentDescription = "Uygulamalar", tint = textColor, modifier = Modifier.size(26.dp))
                                       }
+                                      // Boş Slot 2 (Google Maps)
                                       IconButton(onClick = { openApp("com.google.android.apps.maps") }) {
-                                          Icon(Icons.Default.Explore, contentDescription = "Slot 2", tint = Color(0xFFE91E63), modifier = Modifier.size(28.dp))
+                                          Icon(Icons.Default.Explore, contentDescription = "Maps", tint = Color(0xFFE91E63), modifier = Modifier.size(26.dp))
                                       }
                                   }
                               }
@@ -576,6 +586,7 @@ jobs:
                                       modifier = Modifier.weight(3.4f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
+                                      // 5. Google Maps Alanı
                                       Card(
                                           modifier = Modifier.weight(7.0f).fillMaxWidth().combinedClickable(
                                               onClick = { openApp("com.google.android.apps.maps") },
@@ -650,6 +661,7 @@ jobs:
                                           }
                                       }
 
+                                      // 7. YouTube Music Kartı
                                       Card(
                                           modifier = Modifier.weight(3.0f).fillMaxWidth(),
                                           shape = RoundedCornerShape(14.dp),
@@ -745,6 +757,7 @@ jobs:
                                       modifier = Modifier.weight(3.6f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
+                                      // Üst Satır: 3. Bölüm (Büyük Sütunda KM/H ve Hız Sınırı)
                                       Row(
                                           modifier = Modifier.fillMaxWidth().weight(2.8f),
                                           horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -754,6 +767,7 @@ jobs:
                                               currentSpeedInt >= 100 -> Color(0xFFFFCA28)
                                               else -> Color(0xFF00E5FF)
                                           }
+                                          // KM/H (Aux'un eski büyük sütun yeri)
                                           Card(
                                               modifier = Modifier.weight(1.3f).fillMaxHeight().clickable { maxSpeedInt = 0 },
                                               shape = RoundedCornerShape(14.dp),
@@ -772,33 +786,47 @@ jobs:
                                               }
                                           }
 
+                                          // Hız Sınırı Tabelası (Alttaki boş yere eklenen özel yasal hız limiti simülatörü)
                                           Card(
                                               modifier = Modifier.weight(1.1f).fillMaxHeight(),
                                               shape = RoundedCornerShape(14.dp),
                                               colors = CardDefaults.cardColors(containerColor = cardColor)
                                           ) {
                                               Column(
-                                                  modifier = Modifier.fillMaxSize().padding(10.dp),
-                                                  verticalArrangement = Arrangement.SpaceAround,
+                                                  modifier = Modifier.fillMaxSize().padding(8.dp),
+                                                  verticalArrangement = Arrangement.Center,
                                                   horizontalAlignment = Alignment.CenterHorizontally
                                               ) {
-                                                  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                                      Icon(Icons.Default.Cloud, contentDescription = null, tint = Color(0xFFFFCA28), modifier = Modifier.size(18.dp))
-                                                      Text(temperatureText, color = Color(0xFFFFCA28), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                                  Text("HIZ SINIRI", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                                  Spacer(modifier = Modifier.height(6.dp))
+                                                  // Kırmızı Çerçeveli Beyaz Hız Sınırı Tabelası
+                                                  Surface(
+                                                      modifier = Modifier.size(54.dp),
+                                                      shape = CircleShape,
+                                                      color = Color.White,
+                                                      border = BorderStroke(4.dp, Color(0xFFFF5252))
+                                                  ) {
+                                                      Box(contentAlignment = Alignment.Center) {
+                                                          Text(
+                                                              text = if (currentSpeedInt > 100) "120" else "100",
+                                                              color = Color.Black,
+                                                              fontSize = 18.sp,
+                                                              fontWeight = FontWeight.Bold
+                                                          )
+                                                      }
                                                   }
-                                                  Text(weatherDesc, color = textColor, fontSize = 11.sp, textAlign = TextAlign.Center, maxLines = 1)
-                                                  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                      Icon(Icons.Default.WbSunny, contentDescription = null, tint = Color(0xFFFF9800), modifier = Modifier.size(12.dp))
-                                                      Text(sunriseText, color = textColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                                  }
-                                                  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                      Icon(Icons.Default.NightsStay, contentDescription = null, tint = Color(0xFF90CAF9), modifier = Modifier.size(12.dp))
-                                                      Text(sunsetText, color = textColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                                  }
+                                                  Spacer(modifier = Modifier.height(6.dp))
+                                                  Text(
+                                                      text = if (currentSpeedInt > (if (currentSpeedInt > 100) 120 else 100)) "AŞILDI!" else "Normal",
+                                                      color = if (currentSpeedInt > (if (currentSpeedInt > 100) 120 else 100)) Color(0xFFFF5252) else Color(0xFF4CAF50),
+                                                      fontSize = 11.sp,
+                                                      fontWeight = FontWeight.Bold
+                                                  )
                                               }
                                           }
                                       }
 
+                                      // 6. Bölüm: GPS Tools
                                       Card(
                                           modifier = Modifier.fillMaxWidth().weight(2.0f),
                                           shape = RoundedCornerShape(14.dp),
@@ -832,7 +860,7 @@ jobs:
                                           }
                                       }
 
-                                      // 8. Bölüm: Detaylı Analog Pusula ve Konum (Sokak üstte, şehir ortada, koordinat altta)
+                                      // 8. Bölüm: Kompas ve Konum
                                       Card(
                                           modifier = Modifier.fillMaxWidth().weight(3.2f),
                                           shape = RoundedCornerShape(14.dp),
@@ -925,37 +953,54 @@ jobs:
                                       }
                                   }
 
-                                  // SAĞ SÜTUN (9, 10, 11)
+                                  // SAĞ SÜTUN (9. Takvim Widget'ı, 10. Blitzer ve 11. Parlaklık)
                                   Column(
                                       modifier = Modifier.weight(2.0f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
+                                      // 9. Bölüm: Aylık ve Güncel Takvim Widget'ı (Aux yerine eklendi)
                                       Card(
-                                          modifier = Modifier.weight(2.5f).fillMaxWidth().combinedClickable(
-                                              onClick = { openCameraTarget(selectedCameraPkg) },
-                                              onLongClick = { showCameraPicker = true }
-                                          ),
+                                          modifier = Modifier.weight(2.5f).fillMaxWidth(),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(containerColor = cardColor)
                                       ) {
-                                          Box(modifier = Modifier.fillMaxSize().padding(10.dp)) {
-                                              IconButton(
-                                                  onClick = { showCameraPicker = true },
-                                                  modifier = Modifier.align(Alignment.TopEnd).size(26.dp)
+                                          Column(
+                                              modifier = Modifier.fillMaxSize().padding(8.dp),
+                                              verticalArrangement = Arrangement.SpaceBetween,
+                                              horizontalAlignment = Alignment.CenterHorizontally
+                                          ) {
+                                              val cal = Calendar.getInstance()
+                                              val monthFormat = SimpleDateFormat("MMMM yyyy", Locale("tr"))
+                                              val monthStr = monthFormat.format(cal.time)
+                                              val dayNum = cal.get(Calendar.DAY_OF_MONTH)
+                                              val dayOfWeekFormat = SimpleDateFormat("EEEE", Locale("tr"))
+                                              val dayOfWeekStr = dayOfWeekFormat.format(cal.time)
+
+                                              Row(
+                                                  modifier = Modifier.fillMaxWidth(),
+                                                  horizontalArrangement = Arrangement.SpaceBetween,
+                                                  verticalAlignment = Alignment.CenterVertically
                                               ) {
-                                                  Icon(Icons.Default.Tune, contentDescription = "Kamera Seç", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                                  Icon(Icons.Default.CalendarMonth, contentDescription = "Takvim", tint = Color(0xFF29B6F6), modifier = Modifier.size(16.dp))
+                                                  Text(monthStr, color = Color(0xFF29B6F6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                               }
-                                              Column(
-                                                  modifier = Modifier.align(Alignment.Center),
-                                                  horizontalAlignment = Alignment.CenterHorizontally
+
+                                              Row(
+                                                  modifier = Modifier.fillMaxWidth(),
+                                                  horizontalArrangement = Arrangement.SpaceEvenly,
+                                                  verticalAlignment = Alignment.CenterVertically
                                               ) {
-                                                  Icon(Icons.Default.Videocam, contentDescription = null, tint = Color(0xFF29B6F6), modifier = Modifier.size(38.dp))
-                                                  Spacer(modifier = Modifier.height(4.dp))
-                                                  Text(selectedCameraLabel, color = textColor, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+                                                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                      Text(dayNum.toString(), color = textColor, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                                                      Text(dayOfWeekStr, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                                                  }
                                               }
+
+                                              Text("Bugün", color = Color(0xFFFFCA28), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                           }
                                       }
 
+                                      // 10. Bölüm: Blitzer.de Yuvası
                                       Card(
                                           modifier = Modifier.weight(1.0f).fillMaxWidth()
                                               .border(1.dp, Color(0xFF4CAF50).copy(alpha = 0.3f), RoundedCornerShape(14.dp))
@@ -966,6 +1011,7 @@ jobs:
                                           Box(modifier = Modifier.fillMaxSize()) {}
                                       }
 
+                                      // 11. Bölüm: Parlaklık ve Tema
                                       Card(
                                           modifier = Modifier.weight(1.2f).fillMaxWidth(),
                                           shape = RoundedCornerShape(14.dp),
@@ -1086,81 +1132,19 @@ jobs:
                                   }
                               }
                           }
-
-                          if (showCameraPicker) {
-                              val allApps = remember { getInstalledApps() }
-                              val presets = listOf(
-                                  AppInfo("AUX Girişi (FYT)", "com.syu.av", null),
-                                  AppInfo("Ön Kamera (F-Cam)", "com.syu.fcam", null),
-                                  AppInfo("Kayıt Kamerası (DVR)", "com.syu.dvr", null),
-                                  AppInfo("FYT Kamera", "com.syu.camera", null)
-                              )
-                              Dialog(onDismissRequest = { showCameraPicker = false }) {
-                                  Card(
-                                      modifier = Modifier.fillMaxWidth(0.85f).fillMaxHeight(0.85f),
-                                      shape = RoundedCornerShape(16.dp),
-                                      colors = CardDefaults.cardColors(containerColor = cardColor)
-                                  ) {
-                                      Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                                          Row(
-                                              modifier = Modifier.fillMaxWidth(),
-                                              horizontalArrangement = Arrangement.SpaceBetween,
-                                              verticalAlignment = Alignment.CenterVertically
-                                          ) {
-                                              Text("Kamera / Video Kaynağını Seçin", color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                                              IconButton(onClick = { showCameraPicker = false }) {
-                                                  Icon(Icons.Default.Close, contentDescription = "Kapat", tint = textColor)
-                                              }
-                                          }
-                                          Spacer(modifier = Modifier.height(8.dp))
-                                          LazyVerticalGrid(
-                                              columns = GridCells.Fixed(4),
-                                              verticalArrangement = Arrangement.spacedBy(10.dp),
-                                              horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                              modifier = Modifier.fillMaxSize()
-                                          ) {
-                                              items(presets + allApps) { item ->
-                                                  Card(
-                                                      modifier = Modifier.fillMaxWidth().height(84.dp).clickable {
-                                                          selectedCameraPkg = item.packageName
-                                                          selectedCameraLabel = item.label
-                                                          prefs.edit()
-                                                              .putString("camera_pkg", item.packageName)
-                                                              .putString("camera_label", item.label)
-                                                              .apply()
-                                                          showCameraPicker = false
-                                                          openCameraTarget(item.packageName)
-                                                      },
-                                                      colors = CardDefaults.cardColors(containerColor = bgColor),
-                                                      shape = RoundedCornerShape(10.dp)
-                                                  ) {
-                                                      Column(
-                                                          modifier = Modifier.fillMaxSize().padding(6.dp),
-                                                          verticalArrangement = Arrangement.Center,
-                                                          horizontalAlignment = Alignment.CenterHorizontally
-                                                      ) {
-                                                          if (item.icon != null) {
-                                                              Image(
-                                                                  bitmap = item.icon.asImageBitmap(),
-                                                                  contentDescription = item.label,
-                                                                  modifier = Modifier.size(32.dp)
-                                                              )
-                                                          } else {
-                                                              Icon(Icons.Default.Videocam, contentDescription = null, tint = Color(0xFF29B6F6), modifier = Modifier.size(30.dp))
-                                                          }
-                                                          Spacer(modifier = Modifier.height(4.dp))
-                                                          Text(item.label, color = textColor, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                          Text(item.packageName, color = Color.Gray, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                                      }
-                                                  }
-                                              }
-                                          }
-                                      }
-                                  }
-                              }
-                          }
                       }
                   }
+              }
+
+              private fun openAppSmart(packages: List<String>) {
+                  for (pkg in packages) {
+                      val intent = packageManager.getLaunchIntentForPackage(pkg)
+                      if (intent != null) {
+                          startActivity(intent)
+                          return
+                      }
+                  }
+                  Toast.makeText(this, "Uygun uygulama bulunamadı", Toast.LENGTH_SHORT).show()
               }
 
               private suspend fun fetchWeatherAndPressure(lat: Double, lon: Double) {
@@ -1287,15 +1271,6 @@ jobs:
                       }, 2500L)
                   } catch (_: Exception) {
                       openApp("com.google.android.apps.maps")
-                  }
-              }
-
-              private fun openCameraTarget(pkg: String) {
-                  val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
-                  if (launchIntent != null) {
-                      startActivity(launchIntent)
-                  } else {
-                      Toast.makeText(this, "Uygulama bulunamadı ($pkg).", Toast.LENGTH_SHORT).show()
                   }
               }
 
