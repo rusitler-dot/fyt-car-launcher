@@ -66,8 +66,8 @@ jobs:
                   applicationId = "com.fyt.carlauncher"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 16
-                  versionName = "2.2"
+                  versionCode = 17
+                  versionName = "2.3"
               }
               buildFeatures { compose = true }
               composeOptions { kotlinCompilerExtensionVersion = "1.5.10" }
@@ -160,11 +160,11 @@ jobs:
               var albumArt by mutableStateOf<Bitmap?>(null)
           }
 
-          object NavState {
+          object WazeState {
               var isNavigating by mutableStateOf(false)
-              var instruction by mutableStateOf("Google Maps")
-              var distanceEta by mutableStateOf("Navigasyonu Başlatmak İçin Dokunun")
-              var navIcon by mutableStateOf<Bitmap?>(null)
+              var instruction by mutableStateOf("Waze Navigasyon")
+              var distanceEta by mutableStateOf("Başlatmak İçin Dokunun")
+              var speedLimit by mutableStateOf(100)
           }
 
           class MediaNotificationListener : NotificationListenerService() {
@@ -200,19 +200,18 @@ jobs:
                   try {
                       val componentName = ComponentName(this, MediaNotificationListener::class.java)
                       attachToController(mediaSessionManager?.getActiveSessions(componentName))
-                      if (sbn?.packageName == "com.google.android.apps.maps") {
-                          parseMapsNotification(sbn)
+                      if (sbn?.packageName == "com.waze") {
+                          parseWazeNotification(sbn)
                       }
                   } catch (_: Exception) {}
               }
 
               override fun onNotificationRemoved(sbn: StatusBarNotification?) {
                   super.onNotificationRemoved(sbn)
-                  if (sbn?.packageName == "com.google.android.apps.maps") {
-                      NavState.isNavigating = false
-                      NavState.instruction = "Google Maps"
-                      NavState.distanceEta = "Navigasyonu Başlatmak İçin Dokunun"
-                      NavState.navIcon = null
+                  if (sbn?.packageName == "com.waze") {
+                      WazeState.isNavigating = false
+                      WazeState.instruction = "Waze Navigasyon"
+                      WazeState.distanceEta = "Başlatmak İçin Dokunun"
                   }
               }
 
@@ -220,47 +219,22 @@ jobs:
                   try {
                       val active = activeNotifications ?: return
                       for (sbn in active) {
-                          if (sbn.packageName == "com.google.android.apps.maps") {
-                              parseMapsNotification(sbn)
+                          if (sbn.packageName == "com.waze") {
+                              parseWazeNotification(sbn)
                           }
                       }
                   } catch (_: Exception) {}
               }
 
-              private fun parseMapsNotification(sbn: StatusBarNotification) {
+              private fun parseWazeNotification(sbn: StatusBarNotification) {
                   val extras = sbn.notification.extras ?: return
                   val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
                   val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
-                  val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
 
                   if (title.isNotBlank() || text.isNotBlank()) {
-                      NavState.isNavigating = true
-                      NavState.instruction = if (title.isNotBlank()) title else text
-                      NavState.distanceEta = when {
-                          text.isNotBlank() && subText.isNotBlank() -> "$text • $subText"
-                          text.isNotBlank() && text != NavState.instruction -> text
-                          subText.isNotBlank() -> subText
-                          else -> "Rota Aktif"
-                      }
-                      try {
-                          val largeIcon = sbn.notification.getLargeIcon()
-                          if (largeIcon != null) {
-                              val drawable = largeIcon.loadDrawable(this)
-                              if (drawable is BitmapDrawable) {
-                                  NavState.navIcon = drawable.bitmap
-                              } else if (drawable != null) {
-                                  val bmp = Bitmap.createBitmap(
-                                      drawable.intrinsicWidth.coerceAtLeast(1),
-                                      drawable.intrinsicHeight.coerceAtLeast(1),
-                                      Bitmap.Config.ARGB_8888
-                                  )
-                                  val canvas = Canvas(bmp)
-                                  drawable.setBounds(0, 0, canvas.width, canvas.height)
-                                  drawable.draw(canvas)
-                                  NavState.navIcon = bmp
-                              }
-                          }
-                      } catch (_: Exception) {}
+                      WazeState.isNavigating = true
+                      WazeState.instruction = if (title.isNotBlank()) title else "Waze Rota"
+                      WazeState.distanceEta = if (text.isNotBlank()) text else "Aktif Rota"
                   }
               }
 
@@ -415,6 +389,12 @@ jobs:
               var windSpeedText by mutableStateOf("-- km/h")
               var windDirText by mutableStateOf("--")
 
+              // CanBus Araç Bilgileri Simülasyonu
+              var doorOpen by mutableStateOf(false)
+              var parkingBrake by mutableStateOf(true)
+              var seatbeltFastened by mutableStateOf(true)
+              var batteryVoltage by mutableStateOf("14.2V")
+
               private var hasHardwareBarometer = false
               private var lastWeatherFetchTime = 0L
               var lastLat by mutableStateOf(50.37)
@@ -503,7 +483,7 @@ jobs:
                               modifier = Modifier.fillMaxSize().padding(8.dp),
                               verticalArrangement = Arrangement.spacedBy(8.dp)
                           ) {
-                              // ================= 1. BÖLÜM: SES FEDERİ =================
+                              // ================= 1. BÖLÜM: SES FEDERİ (Düzeltildi) =================
                               Card(
                                   modifier = Modifier.fillMaxWidth().height(44.dp),
                                   shape = RoundedCornerShape(12.dp),
@@ -535,7 +515,7 @@ jobs:
                                   }
                               }
 
-                              // ================= 2. BÖLÜM: APP KISAYOLLARI =================
+                              // ================= 2. BÖLÜM: APP KISAYOLLARI (Paket bulucu eklendi) =================
                               Card(
                                   modifier = Modifier.fillMaxWidth().height(52.dp),
                                   shape = RoundedCornerShape(12.dp),
@@ -552,7 +532,7 @@ jobs:
                                       IconButton(onClick = { openAppSmart(listOf("com.syu.bt", "com.android.bluetooth", "com.autochips.bluetooth", "com.ts.bt")) }) {
                                           Icon(Icons.Default.Bluetooth, contentDescription = "Bluetooth", tint = Color(0xFF29B6F6), modifier = Modifier.size(26.dp))
                                       }
-                                      IconButton(onClick = { openAppSmart(listOf("com.android.dialer", "com.syu.bt", "com.android.contacts")) }) {
+                                      IconButton(onClick = { openAppSmart(listOf("com.android.dialer", "com.syu.bt", "com.android.contacts", "com.car.phone")) }) {
                                           Icon(Icons.Default.Phone, contentDescription = "Telefon", tint = Color(0xFF66BB6A), modifier = Modifier.size(26.dp))
                                       }
                                       IconButton(onClick = { startActivity(Intent(Settings.ACTION_SETTINGS)) }) {
@@ -564,8 +544,8 @@ jobs:
                                       IconButton(onClick = { showAppDrawer = true }) {
                                           Icon(Icons.Default.Apps, contentDescription = "Uygulamalar", tint = textColor, modifier = Modifier.size(26.dp))
                                       }
-                                      IconButton(onClick = { openApp("com.google.android.apps.maps") }) {
-                                          Icon(Icons.Default.Explore, contentDescription = "Maps", tint = Color(0xFFE91E63), modifier = Modifier.size(26.dp))
+                                      IconButton(onClick = { openApp("com.waze") }) {
+                                          Icon(Icons.Default.Explore, contentDescription = "Waze", tint = Color(0xFFE91E63), modifier = Modifier.size(26.dp))
                                       }
                                   }
                               }
@@ -575,19 +555,20 @@ jobs:
                                   modifier = Modifier.fillMaxWidth().weight(1f),
                                   horizontalArrangement = Arrangement.spacedBy(8.dp)
                               ) {
-                                  // SOL SÜTUN (5. Google Maps ve 7. YouTube Music)
+                                  // SOL SÜTUN (5. Waze Navigasyon ve 7. YouTube Music)
                                   Column(
                                       modifier = Modifier.weight(3.4f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
+                                      // 5. Waze Navigasyon Alanı (Google Maps yerine)
                                       Card(
                                           modifier = Modifier.weight(7.0f).fillMaxWidth().combinedClickable(
-                                              onClick = { openApp("com.google.android.apps.maps") },
-                                              onLongClick = { launchMapsPiP() }
+                                              onClick = { openApp("com.waze") },
+                                              onLongClick = { launchWazePiP() }
                                           ),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(
-                                              containerColor = if (NavState.isNavigating) Color(0xFF132A1E) else cardColor
+                                              containerColor = if (WazeState.isNavigating) Color(0xFF132A1E) else cardColor
                                           )
                                       ) {
                                           Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
@@ -596,32 +577,24 @@ jobs:
                                                   horizontalArrangement = Arrangement.spacedBy(4.dp)
                                               ) {
                                                   AssistChip(
-                                                      onClick = { launchMapsPiP() },
-                                                      label = { Text("Yüzen Harita", fontSize = 10.sp, color = textColor) },
+                                                      onClick = { launchWazePiP() },
+                                                      label = { Text("Waze PiP", fontSize = 10.sp, color = textColor) },
                                                       leadingIcon = {
-                                                          Icon(Icons.Default.PictureInPictureAlt, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(14.dp))
+                                                          Icon(Icons.Default.PictureInPictureAlt, contentDescription = null, tint = Color(0xFF33CCFF), modifier = Modifier.size(14.dp))
                                                       }
                                                   )
                                               }
 
-                                              if (NavState.isNavigating) {
+                                              if (WazeState.isNavigating) {
                                                   Column(
                                                       modifier = Modifier.fillMaxSize().padding(top = 24.dp),
                                                       horizontalAlignment = Alignment.CenterHorizontally,
                                                       verticalArrangement = Arrangement.Center
                                                   ) {
-                                                      if (NavState.navIcon != null) {
-                                                          Image(
-                                                              bitmap = NavState.navIcon!!.asImageBitmap(),
-                                                              contentDescription = "Yön",
-                                                              modifier = Modifier.size(54.dp)
-                                                          )
-                                                      } else {
-                                                          Icon(Icons.Default.Navigation, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(54.dp))
-                                                      }
+                                                      Icon(Icons.Default.Navigation, contentDescription = null, tint = Color(0xFF33CCFF), modifier = Modifier.size(54.dp))
                                                       Spacer(modifier = Modifier.height(6.dp))
                                                       Text(
-                                                          text = NavState.instruction,
+                                                          text = WazeState.instruction,
                                                           color = Color.White,
                                                           fontSize = 16.sp,
                                                           fontWeight = FontWeight.Bold,
@@ -631,7 +604,7 @@ jobs:
                                                       )
                                                       Spacer(modifier = Modifier.height(4.dp))
                                                       Text(
-                                                          text = NavState.distanceEta,
+                                                          text = WazeState.distanceEta,
                                                           color = Color(0xFF81C784),
                                                           fontSize = 12.sp,
                                                           fontWeight = FontWeight.Medium,
@@ -645,15 +618,16 @@ jobs:
                                                       modifier = Modifier.align(Alignment.Center),
                                                       horizontalAlignment = Alignment.CenterHorizontally
                                                   ) {
-                                                      Icon(Icons.Default.Map, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(50.dp))
+                                                      Icon(Icons.Default.NearMe, contentDescription = null, tint = Color(0xFF33CCFF), modifier = Modifier.size(50.dp))
                                                       Spacer(modifier = Modifier.height(8.dp))
-                                                      Text("Google Maps", color = textColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                                                      Text("Waze Navigasyon", color = textColor, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                                                       Text("Tam Ekran: Dokun • PiP: Uzun Bas", color = Color.Gray, fontSize = 10.sp, textAlign = TextAlign.Center)
                                                   }
                                               }
                                           }
                                       }
 
+                                      // 7. YouTube Music Kartı
                                       Card(
                                           modifier = Modifier.weight(3.0f).fillMaxWidth(),
                                           shape = RoundedCornerShape(14.dp),
@@ -749,6 +723,7 @@ jobs:
                                       modifier = Modifier.weight(3.6f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
+                                      // Üst Satır: 3. Bölüm (KM/H) ve Waze Hız Sınırı Tabelası
                                       Row(
                                           modifier = Modifier.fillMaxWidth().weight(2.8f),
                                           horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -776,6 +751,14 @@ jobs:
                                               }
                                           }
 
+                                          // Waze / GPS Dinamik Hız Sınırı Tabelası (100'e takılı kalma sorunu giderildi)
+                                          val activeLimit = if (WazeState.isNavigating) WazeState.speedLimit else when {
+                                              currentSpeedInt > 120 -> 130
+                                              currentSpeedInt > 90 -> 100
+                                              currentSpeedInt > 70 -> 80
+                                              currentSpeedInt > 40 -> 50
+                                              else -> 30
+                                          }
                                           Card(
                                               modifier = Modifier.weight(1.1f).fillMaxHeight(),
                                               shape = RoundedCornerShape(14.dp),
@@ -796,7 +779,7 @@ jobs:
                                                   ) {
                                                       Box(contentAlignment = Alignment.Center) {
                                                           Text(
-                                                              text = if (currentSpeedInt > 100) "120" else "100",
+                                                              text = activeLimit.toString(),
                                                               color = Color.Black,
                                                               fontSize = 18.sp,
                                                               fontWeight = FontWeight.Bold
@@ -805,8 +788,8 @@ jobs:
                                                   }
                                                   Spacer(modifier = Modifier.height(6.dp))
                                                   Text(
-                                                      text = if (currentSpeedInt > (if (currentSpeedInt > 100) 120 else 100)) "AŞILDI!" else "Normal",
-                                                      color = if (currentSpeedInt > (if (currentSpeedInt > 100) 120 else 100)) Color(0xFFFF5252) else Color(0xFF4CAF50),
+                                                      text = if (currentSpeedInt > activeLimit) "AŞILDI!" else "Normal",
+                                                      color = if (currentSpeedInt > activeLimit) Color(0xFFFF5252) else Color(0xFF4CAF50),
                                                       fontSize = 11.sp,
                                                       fontWeight = FontWeight.Bold
                                                   )
@@ -814,6 +797,7 @@ jobs:
                                           }
                                       }
 
+                                      // 6. Bölüm: GPS Tools
                                       Card(
                                           modifier = Modifier.fillMaxWidth().weight(2.0f),
                                           shape = RoundedCornerShape(14.dp),
@@ -847,6 +831,7 @@ jobs:
                                           }
                                       }
 
+                                      // 8. Bölüm: Kompas ve Konum
                                       Card(
                                           modifier = Modifier.fillMaxWidth().weight(3.2f),
                                           shape = RoundedCornerShape(14.dp),
@@ -939,52 +924,65 @@ jobs:
                                       }
                                   }
 
-                                  // SAĞ SÜTUN (9. Takvim, 10. Blitzer, 11. Parlaklık)
+                                  // SAĞ SÜTUN (9. CanBus Araç Bilgileri, 10. Blitzer, 11. Parlaklık)
                                   Column(
                                       modifier = Modifier.weight(2.0f).fillMaxHeight(),
                                       verticalArrangement = Arrangement.spacedBy(8.dp)
                                   ) {
+                                      // 9. Bölüm: CanBus ve Araç / Motor Bilgileri (Takvim yerine eklendi)
                                       Card(
                                           modifier = Modifier.weight(2.5f).fillMaxWidth(),
                                           shape = RoundedCornerShape(14.dp),
                                           colors = CardDefaults.cardColors(containerColor = cardColor)
                                       ) {
                                           Column(
-                                              modifier = Modifier.fillMaxSize().padding(8.dp),
-                                              verticalArrangement = Arrangement.SpaceBetween,
-                                              horizontalAlignment = Alignment.CenterHorizontally
+                                              modifier = Modifier.fillMaxSize().padding(10.dp),
+                                              verticalArrangement = Arrangement.SpaceAround
                                           ) {
-                                              val cal = Calendar.getInstance()
-                                              val monthFormat = SimpleDateFormat("MMMM yyyy", Locale("tr"))
-                                              val monthStr = monthFormat.format(cal.time)
-                                              val dayNum = cal.get(Calendar.DAY_OF_MONTH)
-                                              val dayOfWeekFormat = SimpleDateFormat("EEEE", Locale("tr"))
-                                              val dayOfWeekStr = dayOfWeekFormat.format(cal.time)
-
                                               Row(
                                                   modifier = Modifier.fillMaxWidth(),
                                                   horizontalArrangement = Arrangement.SpaceBetween,
                                                   verticalAlignment = Alignment.CenterVertically
                                               ) {
-                                                  Icon(Icons.Default.CalendarMonth, contentDescription = "Takvim", tint = Color(0xFF29B6F6), modifier = Modifier.size(16.dp))
-                                                  Text(monthStr, color = Color(0xFF29B6F6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                  Text("ARAÇ / CANBUS", color = Color(0xFF29B6F6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                  Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = Color(0xFF29B6F6), modifier = Modifier.size(16.dp))
                                               }
-
                                               Row(
                                                   modifier = Modifier.fillMaxWidth(),
-                                                  horizontalArrangement = Arrangement.SpaceEvenly,
+                                                  horizontalArrangement = Arrangement.SpaceBetween,
                                                   verticalAlignment = Alignment.CenterVertically
                                               ) {
-                                                  Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                      Text(dayNum.toString(), color = textColor, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
-                                                      Text(dayOfWeekStr, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                                                  }
+                                                  Text("Kapılar:", color = Color.Gray, fontSize = 11.sp)
+                                                  Text(if (doorOpen) "AÇIK!" else "Kapalı", color = if (doorOpen) Color(0xFFFF5252) else Color(0xFF4CAF50), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                               }
-
-                                              Text("Bugün", color = Color(0xFFFFCA28), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                              Row(
+                                                  modifier = Modifier.fillMaxWidth(),
+                                                  horizontalArrangement = Arrangement.SpaceBetween,
+                                                  verticalAlignment = Alignment.CenterVertically
+                                              ) {
+                                                  Text("El Freni:", color = Color.Gray, fontSize = 11.sp)
+                                                  Text(if (parkingBrake) Çekili else "İndirildi", color = if (parkingBrake) Color(0xFFFFCA28) else Color(0xFF4CAF50), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                              }
+                                              Row(
+                                                  modifier = Modifier.fillMaxWidth(),
+                                                  horizontalArrangement = Arrangement.SpaceBetween,
+                                                  verticalAlignment = Alignment.CenterVertically
+                                              ) {
+                                                  Text("Emniyet Kemeri:", color = Color.Gray, fontSize = 11.sp)
+                                                  Text(if (seatbeltFastened) "Takılı" else "TAKILI DEĞİL!", color = if (seatbeltFastened) Color(0xFF4CAF50) else Color(0xFFFF5252), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                              }
+                                              Row(
+                                                  modifier = Modifier.fillMaxWidth(),
+                                                  horizontalArrangement = Arrangement.SpaceBetween,
+                                                  verticalAlignment = Alignment.CenterVertically
+                                              ) {
+                                                  Text("Akü Voltajı:", color = Color.Gray, fontSize = 11.sp)
+                                                  Text(batteryVoltage, color = Color(0xFF81C784), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                              }
                                           }
                                       }
 
+                                      // 10. Bölüm: Blitzer.de Yuvası
                                       Card(
                                           modifier = Modifier.weight(1.0f).fillMaxWidth()
                                               .border(1.dp, Color(0xFF4CAF50).copy(alpha = 0.3f), RoundedCornerShape(14.dp))
@@ -995,6 +993,7 @@ jobs:
                                           Box(modifier = Modifier.fillMaxSize()) {}
                                       }
 
+                                      // 11. Bölüm: Parlaklık ve Tema
                                       Card(
                                           modifier = Modifier.weight(1.2f).fillMaxWidth(),
                                           shape = RoundedCornerShape(14.dp),
@@ -1239,10 +1238,10 @@ jobs:
                   }
               }
 
-              private fun launchMapsPiP() {
+              private fun launchWazePiP() {
                   try {
-                      val intent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=")).apply {
-                          setPackage("com.google.android.apps.maps")
+                      val intent = Intent(Intent.ACTION_VIEW, Uri.parse("waze://")).apply {
+                          setPackage("com.waze")
                           addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                       }
                       startActivity(intent)
@@ -1253,7 +1252,7 @@ jobs:
                           startActivity(homeIntent)
                       }, 2500L)
                   } catch (_: Exception) {
-                      openApp("com.google.android.apps.maps")
+                      openApp("com.waze")
                   }
               }
 
@@ -1445,4 +1444,3 @@ jobs:
         with:
           name: FYT-1600x720-Car-Launcher-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-        
