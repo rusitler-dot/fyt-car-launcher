@@ -66,8 +66,8 @@ jobs:
                   applicationId = "com.fyt.carlauncher"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 11
-                  versionName = "1.9.1"
+                  versionCode = 12
+                  versionName = "1.9.2"
               }
               buildFeatures { compose = true }
               composeOptions { kotlinCompilerExtensionVersion = "1.5.10" }
@@ -1189,7 +1189,7 @@ jobs:
                                                   ) {
                                                       Column(
                                                           modifier = Modifier.fillMaxSize().padding(6.dp),
-                                                          verticalArrangement = Alignment.Center,
+                                                          verticalArrangement = Arrangement.Center,
                                                           horizontalAlignment = Alignment.CenterHorizontally
                                                       ) {
                                                           if (item.icon != null) {
@@ -1479,7 +1479,7 @@ jobs:
 
               private fun openApp(packageName: String) {
                   val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-                  if (launchIntent !=0) {
+                  if (launchIntent != null) {
                       startActivity(launchIntent)
                   } else {
                       Toast.makeText(this, "Uygulama bulunamadı: $packageName", Toast.LENGTH_SHORT).show()
@@ -1489,7 +1489,7 @@ jobs:
               private fun hideSystemUI() {
                   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                       window.insetsController?.let {
-                          it.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                        it.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
                           it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                       }
                   }
@@ -1505,7 +1505,7 @@ jobs:
           }
           EOF
 
-      - name: 4. Gradle 8.5 Indir ve APK Derle
+      - name: 4. Gradle 8.5 Indir ve APK Derleme işlemi
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
           unzip -q gradle-8.5-bin.zip
