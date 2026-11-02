@@ -10,7 +10,7 @@
         android:allowBackup="true"
         android:label="Y_RUSITLER CAR LAUNCHER"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.NoActionBar">
+        android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
 
         <activity
             android:name=".MainActivity"
