@@ -36,4 +36,3 @@ jobs:
         with:
           name: Y_RUSITLER_CAR_LAUNCHER_APK
           path: app/build/outputs/apk/debug/*.apk
-          
